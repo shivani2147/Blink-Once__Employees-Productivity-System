@@ -1,0 +1,151 @@
+Build a complete production-style web application called "Blink Once Employees Productivity System" using Python + FastAPI + HTML + CSS + SQL Server.
+
+Technical Requirements : 
+Backend: FastAPI
+Frontend: HTML, CSS
+Database: Microsoft SQL Server
+ORM: SQLAlchemy
+Authentication: Secure login with password hashing using bcrypt/passlib
+Database driver: pyodbc
+Form handling using FastAPI
+Use a modular project structure
+Include proper validation
+Include session-based authentication
+
+Create a config.py file that contains any location paths, SQL connection configuration, etc:
+SERVER = r"BO-LAPTOP\SQLEXPRESS"
+DATABASE = "BlinkOnce_EmployeesProductivity"
+
+create config.py file, requirements.txt, README.md
+
+create class / functions for everything 
+
+---------------------------------------
+
+Authentication Requirements
+
+Create:
+Register Page
+Fields --> Employee Name, Email, Username, Password, Rewrite Password, Designation
+
+Requirements:
+Username must be unique
+Password should be hashed
+Store user details in SQL Server
+
+Create Login Page
+Fields --> Username, Password
+
+Features:
+Session authentication
+Redirect employees to employee dashboard
+Redirect admins to admin dashboard
+Logout functionality
+
+Create two roles:
+ -- Employee and Admin
+Admin role should be stored in database.
+
+Employee Dashboard
+
+Employees should be able to add/edit/view their own productivity records.
+
+Create form with these fields:
+Employee name, Designation, Client name, Date, Project name, project Start & end date, Video Duration, Status (Ongoing, Hold, Not Started, Done), Harddisk number, Directory/location in harddisk, Uploaded to drive (Yes/No), Drive Link, Type of shoot (engagement, wedding, pre-wedding, corporate, birthday, events,.), Number of Cameras Used, Comments
+
+Requirements:
+Employee can create records
+Employee can edit own records
+Employee can view own records
+Employee cannot view other employees' records
+Records should be saved in SQL Server
+
+================================================================================================
+
+"Admin Dashboard"
+
+Admin requirements:
+Admin should ONLY have viewing permission.
+
+Admin can:
+View all employees, View all project/productivity entries
+Filter by --> Employee, Client Name, Project Name, Status, Date range
+
+Admin dashboard should display:
+Total Employees, Total Projects, Completed Projects, Ongoing Projects, Hold Projects, Progress work of each employee, Employee Productivity Camera-Level Analytics Graph
+Use dashboard cards.
+
+Requirements for Camera-Level Analytics:
+Create a chart/graph showing each employee's workload and productivity based on camera levels.
+Camera Levels should be categorized as:
+Level 1 = Single Camera footage
+Level 2 = Two Camera footage
+Level 3 = Three Camera footage
+Level N = N number of cameras
+
+The system should automatically calculate the expected editing workload and estimated completion time according to the number of cameras involved.
+
+The password must be hashed before storing it in SQL Server.
+
+Admin Identification & Access Control:
+
+Use Role-Based Access Control (RBAC) with a `role` field in the database (Employee/Admin). On first application startup, if no Admin account exists in the database, automatically create a default Admin account:
+Username: admin
+Password: admin123
+Role: Admin
+Store admin credentials in the database with hashed passwords, and prevent privilege escalation or direct URL access to admin pages.
+
+Admin should have the ability to change their username and password from the profile/settings page. Any credential changes must automatically update the SQL Server database. Passwords must always be hashed before storage. After changing credentials, future logins should use the updated credentials from the database instead of the default ones.
+
+================================================================================================
+
+for the "Admin" account : 
+
+create a page to add new employee's details 
+
+
+**Employee Type (Dropdown):**
+* Editor
+* Photographer
+* Freelance
+* Intern
+* Manager / Team Lead *
+
+**Personal Details:**
+* Full Name
+* Employee Code *(Auto-generated: EMP001, EMP002...)*
+* Email Address
+* Mobile Number
+* Date of Birth
+* Gender
+* Address
+* Emergency Contact Number
+* Passport Size Photo *(upload)*
+
+**Identity Details:**
+* Aadhaar Number
+
+**Education Details:**
+* Highest Qualification
+* School / College / Institution Name
+* Upload Marksheet / Degree Certificate
+
+**Employment Details:**
+* Date of Joining
+* Department (dropdown)
+* Designation
+* Salary / Payment Type : 
+  * Monthly Salary
+  * Per Project
+  * Freelance Rate
+
+**Skills & Experience:**
+* Experience (Years/Months)
+* Skills / Expertise
+* Software Knowledge *(for editors)*
+* Camera Skill Level *(for photographers)*
+
+**Documents Upload:**
+* Resume / CV
+* Aadhaar Front & Back
+* Marksheet / Certificates

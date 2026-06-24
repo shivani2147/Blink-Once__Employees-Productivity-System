@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard | Blink Once EPS{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="flex-between mb-4">
+    <h2><i class="fa-solid fa-chart-pie"></i> Executive Overview</h2>
+</div>
+
+<!-- Dashboard Stats -->
+<div class="dashboard-grid">
+    <div class="stat-card glass-panel">
+        <div class="stat-title">Total Employees</div>
+        <div class="stat-value">{{ total_employees }}</div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-title">Total Projects</div>
+        <div class="stat-value">{{ total_projects }}</div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-title text-success" style="color: var(--success)">Completed</div>
+        <div class="stat-value">{{ completed_projects }}</div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-title text-info" style="color: var(--info)">Ongoing</div>
+        <div class="stat-value">{{ ongoing_projects }}</div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-title text-warning" style="color: var(--warning)">On Hold</div>
+        <div class="stat-value">{{ hold_projects }}</div>
+    </div>
+</div>
+
+<div class="grid-2 mb-4">
+    <!-- Camera-Level Analytics Graph -->
+    <div class="glass-panel p-4" style="padding: 1.5rem;">
+        <h3 class="mb-3">Camera-Level Analytics</h3>
+        <p class="text-secondary mb-3" style="font-size: 0.9rem;">Distribution of project complexity based on camera levels.</p>
+        <canvas id="cameraChart" height="200"></canvas>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-panel p-4" style="padding: 1.5rem;">
+        <h3 class="mb-3">Filter Records</h3>
+        <form method="GET" action="/admin/dashboard">
+            <div class="grid-2 mb-2">
+                <div class="form-group">
+                    <label>Employee Name</label>
+                    <input type="text" name="employee_filter" class="form-control" value="{{ filters.employee_filter }}">
+                </div>
+                <div class="form-group">
+                    <label>Client Name</label>
+                    <input type="text" name="client_filter" class="form-control" value="{{ filters.client_filter }}">
+                </div>
+            </div>
+            <div class="grid-2 mb-2">
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" name="project_filter" class="form-control" value="{{ filters.project_filter }}">
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status_filter" class="form-control">
+                        <option value="">All</option>
+                        <option value="Not Started" {% if filters.status_filter == 'Not Started' %}selected{% endif %}>Not Started</option>
+                        <option value="Ongoing" {% if filters.status_filter == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+                        <option value="Hold" {% if filters.status_filter == 'Hold' %}selected{% endif %}>Hold</option>
+                        <option value="Done" {% if filters.status_filter == 'Done' %}selected{% endif %}>Done</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-filter"></i> Apply Filters
+            </button>
+            <a href="/admin/dashboard" class="btn btn-outline" style="margin-left: 0.5rem;">Clear</a>
+        </form>
+    </div>
+</div>
+
+<!-- All Records Table -->
+<div class="glass-panel mb-4" style="padding: 1.5rem;">
+    <h3 class="mb-3">All Productivity Records</h3>
+    {% if records %}
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Cameras</th>
+                    <th>Est. Workload</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td>
+                        <strong>{{ r.employee_name }}</strong><br>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ r.designation }}</span>
+                    </td>
+                    <td>{{ r.date }}</td>
+                    <td>{{ r.client_name }}</td>
+                    <td>{{ r.project_name }}</td>
+                    <td>
+                        <span class="badge badge-{{ r.status | lower | replace(' ', '') }}">{{ r.status }}</span>
+                    </td>
+                    <td>Level {{ r.cameras_used if r.cameras_used <= 3 else 'N' }} ({{ r.cameras_used }})</td>
+                    <td>{{ "%.1f"|format(r.expected_workload_hours) }} hrs</td>
+                </tr>
+                {% endendfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center text-secondary py-4" style="padding: 2rem 0;">
+        <p>No records found matching your criteria.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ctx = document.getElementById('cameraChart').getContext('2d');
+    const data = {{ analytics_data | safe }};
+    
+    // Convert CSS variable to hex/rgb for Chart.js
+    const accentColor = '#6366f1'; 
+    const accentHover = '#4f46e5';
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Number of Projects',
+                data: data.data,
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: accentColor,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8', stepSize: 1 },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#94a3b8' },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#f8fafc' }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

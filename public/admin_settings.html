@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Settings | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+
+<body>
+    <nav class="navbar glass-panel">
+        <div class="nav-brand">
+            <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
+        </div>
+        <div class="nav-links">
+            <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+            <a href="/admin/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-chart-line"></i>
+                Dashboard</a>
+            <a href="/admin/settings" class="btn btn-outline btn-sm"><i class="fa-solid fa-gear"></i> Settings</a>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i
+                    class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <main class="main-container fade-in">
+        <div class="flex-between mb-4">
+            <h2><i class="fa-solid fa-gear"></i> Admin Settings</h2>
+        </div>
+
+        <div class="glass-panel" style="max-width: 600px; margin: 0 auto; padding: 2rem;">
+            <h3 class="mb-3">Update Credentials</h3>
+            <p class="text-secondary mb-4">Change your admin username and password here. You will be required to log in
+                again after updating.</p>
+
+            <div id="msg" class="alert" style="display: none;"></div>
+
+            <form id="settings-form">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" name="username" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="password" class="form-control"
+                        placeholder="Leave blank to keep current password">
+                    <small class="text-secondary">Only fill this if you want to change your password.</small>
+                </div>
+
+                <div class="alert mt-4"
+                    style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Changing credentials will log you out immediately.
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const meRes = await fetch('/api/auth/me');
+                if (!meRes.ok) { window.location.href = '/login'; return; }
+                const user = await meRes.json();
+                if (user.role !== 'Admin') { window.location.href = '/employee/dashboard'; return; }
+                document.getElementById('nav-user-name').textContent = user.employee_name;
+                document.getElementById('username').value = user.username;
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        });
+
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/admin/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    const msgBox = document.getElementById('msg');
+                    msgBox.style.display = 'block';
+                    msgBox.textContent = 'Failed to update credentials.';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+
+</html>

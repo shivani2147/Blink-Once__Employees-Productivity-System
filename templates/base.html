@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Blink Once EPS{% endblock %}</title>
+    <meta name="description" content="Blink Once Employees Productivity System">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% if request.session.get("user_id") %}
+    <nav class="navbar glass-panel">
+        <div class="nav-brand">
+            <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
+        </div>
+        <div class="nav-links">
+            <span class="user-greeting">Hello, <strong>{{ user.employee_name if user else "User" }}</strong></span>
+            
+            {% if user and user.role == "Admin" %}
+                <a href="/admin/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="/admin/settings" class="btn btn-outline btn-sm"><i class="fa-solid fa-gear"></i> Settings</a>
+            {% else %}
+                <a href="/employee/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-house"></i> Dashboard</a>
+            {% endif %}
+            
+            <a href="/logout" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="main-container fade-in">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

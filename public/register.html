@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <main class="main-container fade-in">
+        <div class="auth-wrapper">
+            <div class="auth-card glass-panel" style="max-width: 600px;">
+                <div class="text-center mb-4">
+                    <h1 class="gradient-text">Create Account</h1>
+                    <p class="text-secondary">Join Blink Once Employees Productivity System</p>
+                </div>
+                
+                <div id="error-message" class="alert" style="display: none;">
+                    <i class="fa-solid fa-circle-exclamation"></i> <span></span>
+                </div>
+                
+                <form id="register-form">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="email">Email <span style="color: red;">*</span></label>
+                            <input type="email" id="email" name="email" class="form-control" required placeholder="john@example.com">
+                            <div id="email-status" style="font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" class="form-control" required placeholder="johndoe">
+                        </div>
+                    </div>
+                    
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" name="password" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rewrite_password">Confirm Password</label>
+                            <input type="password" id="rewrite_password" name="rewrite_password" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                        <i class="fa-solid fa-user-plus"></i> Register Account
+                    </button>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p class="text-secondary">Already have an account? <a href="/login">Login here</a></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let emailValid = false;
+        const emailInput = document.getElementById('email');
+        const emailStatus = document.getElementById('email-status');
+        const submitBtn = document.querySelector('button[type="submit"]');
+
+        // Check email when user leaves the email field
+        emailInput.addEventListener('blur', async () => {
+            const email = emailInput.value.trim();
+            
+            if (!email) {
+                emailStatus.style.display = 'none';
+                emailValid = false;
+                submitBtn.disabled = true;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/check-email?email=${encodeURIComponent(email)}`);
+                
+                if (response.ok) {
+                    emailStatus.style.display = 'block';
+                    emailStatus.innerHTML = '<i class="fa-solid fa-check" style="color: green;"></i> Email is registered by Admin';
+                    emailStatus.style.color = 'green';
+                    emailValid = true;
+                    submitBtn.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    emailStatus.style.display = 'block';
+                    emailStatus.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="color: red;"></i> ${errorData.detail}`;
+                    emailStatus.style.color = 'red';
+                    emailValid = false;
+                    submitBtn.disabled = true;
+                }
+            } catch (err) {
+                console.error(err);
+                emailStatus.style.display = 'block';
+                emailStatus.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: red;"></i> Error checking email';
+                emailStatus.style.color = 'red';
+                emailValid = false;
+                submitBtn.disabled = true;
+            }
+        });
+
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validate email before submission
+            if (!emailValid) {
+                const errorBox = document.getElementById('error-message');
+                errorBox.style.display = 'block';
+                errorBox.querySelector('span').textContent = 'Please use an email registered by the Admin';
+                return;
+            }
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            if (data.password !== data.rewrite_password) {
+                const errorBox = document.getElementById('error-message');
+                errorBox.style.display = 'block';
+                errorBox.querySelector('span').textContent = 'Passwords do not match';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    const errorData = await response.json();
+                    const errorBox = document.getElementById('error-message');
+                    errorBox.style.display = 'block';
+                    errorBox.querySelector('span').textContent = errorData.detail || 'Registration failed';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        // Disable submit button initially
+        submitBtn.disabled = true;
+    </script>
+</body>
+</html>

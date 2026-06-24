@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>View Employee Details - Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .search-box { margin-bottom: 1.5rem; }
+        .employee-table { width: 100%; border-collapse: collapse; background: #fff; }
+        .employee-table thead { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .employee-table th, .employee-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .employee-table tbody tr:hover { background: #f5f5f5; }
+        .employee-table tbody tr { cursor: pointer; }
+        .btn-view { background: #667eea; color: white; border: none; padding: 0.4rem 0.8rem; cursor: pointer; border-radius: 4px; font-size: 0.9rem; }
+        .btn-view:hover { background: #5568d3; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow: auto; }
+        .modal-content { background: #fff; margin: 2rem auto; padding: 2rem; width: 90%; max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .close { color: #aaa; float: right; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #000; }
+        .detail-section { margin-bottom: 1.5rem; }
+        .detail-section h3 { border-bottom: 2px solid #667eea; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+        .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .detail-item { background: #f9f9f9; padding: 0.75rem; border-radius: 4px; border-left: 3px solid #667eea; }
+        .detail-item-label { font-weight: bold; color: #667eea; font-size: 0.9rem; }
+        .detail-item-value { color: #333; margin-top: 0.25rem; }
+        .file-links { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
+        .file-links p { margin: 0; }
+        .file-link { display: inline-flex; align-items: center; justify-content: center; background: #667eea; color: white; padding: 0.4rem 0.8rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem; }
+        .file-link:hover { background: #5568d3; }
+        .employee-photo { max-width: 150px; border-radius: 8px; border: 2px solid #667eea; }
+    </style>
+</head>
+<body>
+    <main class="main-container">
+        <div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem auto; max-width: 1200px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>View Employee Details</h2>
+                <a href="/admin/dashboard" class="btn btn-outline">← Back to Dashboard</a>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="search_input" class="form-control" placeholder="Search by name, email, employee code...">
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="employee-table" id="employees-table">
+                    <thead>
+                        <tr>
+                            <th>Employee Code</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Mobile</th>
+                            <th>Department</th>
+                            <th>Designation</th>
+                            <th>Joining Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="8" style="text-align: center; padding: 2rem;">Loading employees...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="detail-body"></div>
+        </div>
+    </div>
+
+    <script>
+        let allEmployees = [];
+
+        // Fetch employees on page load
+        async function loadEmployees() {
+            try {
+                const res = await fetch('/api/admin/employees');
+                const data = await res.json();
+                allEmployees = data.employees || [];
+                renderTable(allEmployees);
+            } catch (err) {
+                console.error('Failed to load employees:', err);
+                document.getElementById('table-body').innerHTML = '<tr><td colspan="8" style="color: red; text-align: center;">Error loading employees</td></tr>';
+            }
+        }
+
+        function renderTable(employees) {
+            const tbody = document.getElementById('table-body');
+            if (!employees.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No employees found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = employees.map(emp => `
+                <tr>
+                    <td>${emp.employee_code || 'N/A'}</td>
+                    <td>${emp.employee_name || 'N/A'}</td>
+                    <td>${emp.email || 'N/A'}</td>
+                    <td>${emp.mobile_number || 'N/A'}</td>
+                    <td>${emp.department ? emp.department.replace(/,/g, ', ') : 'N/A'}</td>
+                    <td>${emp.designation ? emp.designation.replace(/,/g, ', ') : 'N/A'}</td>
+                    <td>${emp.date_of_joining ? new Date(emp.date_of_joining).toLocaleDateString() : 'N/A'}</td>
+                    <td><button class="btn-view" onclick="showDetails(${emp.id})">View Details</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function showDetails(empId) {
+            const emp = allEmployees.find(e => e.id === empId);
+            if (!emp) return;
+
+            const modal = document.getElementById('detail-modal');
+            const detailBody = document.getElementById('detail-body');
+
+            const photoSrc = emp.photo_path ? '/' + emp.photo_path.replace(/^\/+/, '') : '';
+            const photoHtml = photoSrc ? `<img src="${photoSrc}" alt="Photo" class="employee-photo" onerror="this.style.display='none'">` : '<p>No photo uploaded</p>';
+
+            const detailHtml = `
+                <h2>${emp.employee_name} (${emp.employee_code})</h2>
+
+                <div class="detail-section">
+                    <h3>Photo</h3>
+                    ${photoHtml}
+                </div>
+
+                <div class="detail-section">
+                    <h3>Personal Details</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">Full Name</div>
+                            <div class="detail-item-value">${emp.employee_name || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Email</div>
+                            <div class="detail-item-value">${emp.email || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Mobile Number</div>
+                            <div class="detail-item-value">${emp.mobile_number || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Date of Birth</div>
+                            <div class="detail-item-value">${emp.dob ? new Date(emp.dob).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Gender</div>
+                            <div class="detail-item-value">${emp.gender || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Emergency Contact</div>
+                            <div class="detail-item-value">${emp.emergency_contact || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">Address</div>
+                        <div class="detail-item-value">${emp.address || 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Education Details</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">Highest Qualification</div>
+                            <div class="detail-item-value">${emp.highest_qualification || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Institution / School / College</div>
+                            <div class="detail-item-value">${emp.institution_name || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Employment Details</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">Employee Code</div>
+                            <div class="detail-item-value">${emp.employee_code || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Date of Joining</div>
+                            <div class="detail-item-value">${emp.date_of_joining ? new Date(emp.date_of_joining).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Department</div>
+                            <div class="detail-item-value">${emp.department ? emp.department.replace(/,/g, ', ') : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Designation</div>
+                            <div class="detail-item-value">${emp.designation ? emp.designation.replace(/,/g, ', ') : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Salary Type</div>
+                            <div class="detail-item-value">${emp.salary_type || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Salary / Rate</div>
+                            <div class="detail-item-value">${emp.salary_value || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Skills & Experience</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">Experience</div>
+                            <div class="detail-item-value">${emp.experience || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">Camera Skill Level</div>
+                            <div class="detail-item-value">${emp.camera_skill_level || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">Skills / Expertise</div>
+                        <div class="detail-item-value">${emp.skills || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">Software Knowledge</div>
+                        <div class="detail-item-value">${emp.software_knowledge || 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Documents</h3>
+                    <div class="file-links">
+                        ${emp.photo_path ? `<p><strong>Photo:</strong> <a href="/${emp.photo_path.replace(/^\/+/, '')}" class="file-link" target="_blank">View</a></p>` : ''}
+                        ${emp.resume_path ? `<p><strong>Resume:</strong> <a href="/${emp.resume_path.replace(/^\/+/, '')}" class="file-link" target="_blank">View</a></p>` : ''}
+                        ${emp.aadhaar_front_path ? `<p><strong>Aadhaar Front:</strong> <a href="/${emp.aadhaar_front_path.replace(/^\/+/, '')}" class="file-link" target="_blank">View</a></p>` : ''}
+                        ${emp.aadhaar_back_path ? `<p><strong>Aadhaar Back:</strong> <a href="/${emp.aadhaar_back_path.replace(/^\/+/, '')}" class="file-link" target="_blank">View</a></p>` : ''}
+                        ${emp.certificates_path ? `<p><strong>Certificates:</strong> <a href="/${emp.certificates_path.replace(/^\/+/, '')}" class="file-link" target="_blank">View</a></p>` : ''}
+                    </div>
+                    ${!emp.photo_path && !emp.resume_path && !emp.aadhaar_front_path && !emp.aadhaar_back_path && !emp.certificates_path ? '<p>No documents uploaded</p>' : ''}
+                </div>
+            `;
+
+            detailBody.innerHTML = detailHtml;
+            modal.style.display = 'block';
+        }
+
+        // Search functionality
+        document.getElementById('search_input').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            const filtered = allEmployees.filter(emp => 
+                (emp.employee_name || '').toLowerCase().includes(q) ||
+                (emp.email || '').toLowerCase().includes(q) ||
+                (emp.employee_code || '').toLowerCase().includes(q)
+            );
+            renderTable(filtered);
+        });
+
+        // Close modal
+        document.querySelector('.close').addEventListener('click', () => {
+            document.getElementById('detail-modal').style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('detail-modal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Load employees on page load
+        loadEmployees();
+    </script>
+</body>
+</html>

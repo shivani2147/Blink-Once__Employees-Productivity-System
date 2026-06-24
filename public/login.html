@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <main class="main-container fade-in">
+        <div class="auth-wrapper">
+            <div class="auth-card glass-panel">
+                <div class="text-center mb-4">
+                    <h1 class="gradient-text">Welcome Back</h1>
+                    <p class="text-secondary">Sign in to continue to Blink Once EPS</p>
+                </div>
+                
+                <div id="error-message" class="alert" style="display: none;">
+                    <i class="fa-solid fa-circle-exclamation"></i> <span></span>
+                </div>
+                
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" class="form-control" required placeholder="Enter your username">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" class="form-control" required placeholder="Enter your password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                        <i class="fa-solid fa-right-to-bracket"></i> Login
+                    </button>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p class="text-secondary">Don't have an account? <a href="/register">Register here</a></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.role === 'Admin') {
+                        window.location.href = '/admin/dashboard';
+                    } else {
+                        window.location.href = '/employee/dashboard';
+                    }
+                } else {
+                    const errorData = await response.json();
+                    const errorBox = document.getElementById('error-message');
+                    errorBox.style.display = 'block';
+                    errorBox.querySelector('span').textContent = errorData.detail || 'Login failed';
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>

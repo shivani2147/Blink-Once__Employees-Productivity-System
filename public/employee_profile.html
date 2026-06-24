@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .profile-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+        .profile-card { background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.06); padding: 1.5rem; }
+        .profile-photo { width: 180px; height: 180px; object-fit: cover; border-radius: 18px; border: 3px solid #667eea; }
+        .profile-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+        .profile-item { background: #f7f9ff; padding: 1rem; border-radius: 10px; }
+        .profile-item strong { display: block; margin-bottom: 0.5rem; color: #334155; }
+    </style>
+</head>
+<body>
+    <nav class="navbar glass-panel">
+        <div class="nav-brand">
+            <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
+        </div>
+        <div class="nav-links">
+            <a href="/employee/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-house"></i> Dashboard</a>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+    <main class="main-container fade-in">
+        <div class="glass-panel" style="padding: 1.5rem; max-width: 1000px; margin: 1.5rem auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h2>My Profile</h2>
+                    <p class="text-secondary">Full employee details registered by admin.</p>
+                </div>
+                <a href="/employee/dashboard" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+            </div>
+            <div id="profile-body" style="display: none;"></div>
+            <div id="profile-loading" class="text-center" style="padding: 2rem 0;">
+                <i class="fa-solid fa-spinner fa-spin text-secondary" style="font-size: 2rem;"></i>
+                <p>Loading profile...</p>
+            </div>
+            <div id="profile-error" class="text-center" style="display: none; padding: 2rem 0; color: #b91c1c;"></div>
+        </div>
+    </main>
+
+    <script>
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/employee/data');
+                if (!res.ok) throw new Error('Failed to load profile');
+
+                const data = await res.json();
+                const employee = data.employee;
+                if (!employee) throw new Error('No employee data available');
+
+                document.getElementById('profile-loading').style.display = 'none';
+                document.getElementById('profile-body').style.display = 'block';
+
+                const photoUrl = employee.photo_path ? '/' + employee.photo_path.replace(/^\/+/, '') : null;
+                document.getElementById('profile-body').innerHTML = `
+                    <div class="profile-card">
+                        <div style="display: flex; gap: 1.5rem; align-items: start; flex-wrap: wrap;">
+                            ${photoUrl ? `<img src="${photoUrl}" alt="Employee Photo" class="profile-photo">` : `<div class="profile-photo" style="display:flex;align-items:center;justify-content:center;color:#64748b;background:#eef2ff;">No Photo</div>`}
+                            <div style="flex:1; min-width: 240px;">
+                                <h3 style="margin-top:0;">${employee.employee_name || 'N/A'}</h3>
+                                <p><strong>Employee Code:</strong> ${employee.employee_code || 'N/A'}</p>
+                                <p><strong>Email:</strong> ${employee.email || 'N/A'}</p>
+                                <p><strong>Department:</strong> ${employee.department ? employee.department.replace(/,/g, ', ') : 'N/A'}</p>
+                                <p><strong>Designation:</strong> ${employee.designation || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <div class="profile-row" style="margin-top: 1.5rem;">
+                            <div class="profile-item"><strong>Phone</strong>${employee.mobile_number || 'N/A'}</div>
+                            <div class="profile-item"><strong>Date of Birth</strong>${employee.dob ? new Date(employee.dob).toLocaleDateString() : 'N/A'}</div>
+                            <div class="profile-item"><strong>Gender</strong>${employee.gender || 'N/A'}</div>
+                            <div class="profile-item"><strong>Emergency Contact</strong>${employee.emergency_contact || 'N/A'}</div>
+                            <div class="profile-item"><strong>Address</strong>${employee.address || 'N/A'}</div>
+                            <div class="profile-item"><strong>Joining Date</strong>${employee.date_of_joining ? new Date(employee.date_of_joining).toLocaleDateString() : 'N/A'}</div>
+                            <div class="profile-item"><strong>Qualification</strong>${employee.highest_qualification || 'N/A'}</div>
+                            <div class="profile-item"><strong>Institution</strong>${employee.institution_name || 'N/A'}</div>
+                            <div class="profile-item"><strong>Salary Type</strong>${employee.salary_type || 'N/A'}</div>
+                            <div class="profile-item"><strong>Salary / Rate</strong>${employee.salary_value || 'N/A'}</div>
+                            <div class="profile-item"><strong>Experience</strong>${employee.experience || 'N/A'}</div>
+                            <div class="profile-item"><strong>Camera Skill Level</strong>${employee.camera_skill_level || 'N/A'}</div>
+                            <div class="profile-item" style="grid-column: span 2;"><strong>Skills / Expertise</strong>${employee.skills || 'N/A'}</div>
+                            <div class="profile-item" style="grid-column: span 2;"><strong>Software Knowledge</strong>${employee.software_knowledge || 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('profile-loading').style.display = 'none';
+                const errorEl = document.getElementById('profile-error');
+                errorEl.style.display = 'block';
+                errorEl.textContent = error.message || 'Unable to load profile details.';
+            }
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>

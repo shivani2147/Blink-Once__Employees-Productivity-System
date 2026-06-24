@@ -1,0 +1,25 @@
+Env variable :
+ - UV package manager (fastest)
+	- copy paste command to install in cmd
+	- terminal CMD --> uv init
+			- "create env" --> uv venv | uv venv 3.11
+			- "activate" --> .venv\Scripts\activate
+			- create requirements.txt & mention all the libraries --> uv add libraryname (independent library) | uv add -r requirements.txt
+ - conda
+ - pip
+
+
+API Keys
+ - openai api key
+	- https://platform.openai.com/home
+	- paid
+ - groq api key
+	- https://console.groq.com/keys
+	- free & open source
+ - gemini model api key
+	- https://aistudio.google.com/app/api-keys?_gl=1*1pu6mnr*_ga*MTQwODM2NzcxLjE3NzgzMTk3OTA.*_ga_P1DBVKWT6V*czE3NzgzMTk3OTAkbzEkZzAkdDE3NzgzMTk3OTAkajYwJGwwJGgyMTIwMjc4NTIx
+	- free
+# NOTE : paste the api keys in .env file in the root folder
+
+ - To load these API Keys
+	-

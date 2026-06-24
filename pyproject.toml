@@ -1,0 +1,15 @@
+[project]
+name = "blink-once-emp-productivity-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bcrypt==4.1.3",
+    "fastapi==0.111.0",
+    "itsdangerous==2.2.0",
+    "pyodbc==5.1.0",
+    "python-multipart==0.0.9",
+    "sqlalchemy==2.0.30",
+    "uvicorn==0.30.1",
+]
