@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>Add Employee - Admin</title>
@@ -7,25 +8,80 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="/static/js/theme.js" defer></script>
     <style>
-        .multi-select { position: relative; }
-        .ms-button { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-        .ms-dropdown { position: absolute; z-index: 50; background: #fff; border: 1px solid #ccc; width: 100%; max-height: 220px; overflow: auto; margin-top: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
-        .ms-option { padding: 0.35rem 0.5rem; display: flex; align-items: center; }
-        .ms-option input { margin-right: 0.5rem; }
-        .ms-tags { display: inline-block; max-width: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a{padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;text-decoration:none;}
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+
+        .multi-select {
+            position: relative;
+        }
+
+        .ms-button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.4rem;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .ms-dropdown {
+            position: absolute;
+            z-index: 50;
+            background: #fff;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-height: 220px;
+            overflow: auto;
+            margin-top: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .ms-option {
+            padding: 0.35rem 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .ms-option input {
+            margin-right: 0.5rem;
+        }
+
+        .ms-tags {
+            display: inline-block;
+            max-width: 85%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
+
 <body>
-    <nav class="navbar glass-panel" style="margin-bottom: 1rem;">
+    <nav class="navbar glass-panel">
         <div class="nav-brand">
             <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
         </div>
         <div class="nav-links">
-            <a href="/admin/add-employee" class="btn btn-outline btn-sm"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
-            <a href="/admin/view-employees" class="btn btn-outline btn-sm"><i class="fa-solid fa-users"></i> View Employees</a>
-            <a href="/admin/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+            <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
         </div>
     </nav>
+
+    <div class="admin-nav-secondary">
+        <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+        <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+        <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+        <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+        <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+        <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+        <a href="/admin/add-employee" class="active"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+        <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+    </div>
     <main class="main-container">
         <div class="glass-panel" style="padding:1.5rem; max-width:1000px; margin:1.5rem auto;">
             <h2 class="mb-3">Add New Employee</h2>
@@ -75,8 +131,8 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="required">Emergency Contact Number</label>
-                        <input type="text" name="emergency_contact" class="form-control" required>
+                        <label>Emergency Contact Number</label>
+                        <input type="text" name="emergency_contact" class="form-control">
                     </div>
                 </div>
 
@@ -86,8 +142,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="required">Passport Size Photo</label>
-                    <input type="file" name="photo" accept="image/*" class="form-control" required>
+                    <label>Passport Size Photo</label>
+                    <input type="file" name="photo" accept="image/*" class="form-control">
                 </div>
 
                 <h4 class="mt-4">Education Details</h4>
@@ -116,14 +172,15 @@
                 <h4 class="mt-4">Employment Details</h4>
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="required">Date of Joining</label>
-                        <input type="date" name="date_of_joining" class="form-control" required>
+                        <label>Date of Joining</label>
+                        <input type="date" name="date_of_joining" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="required">Department</label>
-                        
+                        <label>Department</label>
+
                         <div class="multi-select" id="department_multi"></div>
-                        <select name="department" id="department_select" class="form-control" multiple size="5" style="display:none;" required>
+                        <select name="department" id="department_select" class="form-control" multiple size="5"
+                            style="display:none;">
                             <option value="Photography">Photography</option>
                             <option value="Videography">Videography</option>
                             <option value="Editing">Editing</option>
@@ -140,10 +197,11 @@
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="required">Designation</label>
-                        
+                        <label>Designation</label>
+
                         <div class="multi-select" id="designation_multi"></div>
-                        <select name="designation" id="designation_select" class="form-control" multiple size="5" style="display:none;" required>
+                        <select name="designation" id="designation_select" class="form-control" multiple size="5"
+                            style="display:none;">
                             <option value="Photographer">Photographer</option>
                             <option value="Videographer">Videographer</option>
                             <option value="Cinematographer">Cinematographer</option>
@@ -157,13 +215,14 @@
                             <option value="Team Lead">Team Lead</option>
                             <option value="Project Manager">Project Manager</option>
                             <option value="Department Manager">Department Manager</option>
-                            <option value="Freelance Photographer / Videographer">Freelance Photographer / Videographer</option>
+                            <option value="Freelance Photographer / Videographer">Freelance Photographer / Videographer
+                            </option>
                             <option value="Freelance Editor">Freelance Editor</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="required">Salary / Payment Type</label>
-                        <select name="salary_type" class="form-control" required>
+                        <label>Salary / Payment Type</label>
+                        <select name="salary_type" class="form-control">
                             <option value="Monthly Salary">Monthly Salary</option>
                             <option value="Per Project">Per Project</option>
                             <option value="Freelance Rate">Freelance Rate</option>
@@ -171,8 +230,8 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="required">Salary / Rate</label>
-                    <input type="text" name="salary_value" class="form-control" required>
+                    <label>Salary Amount (Numeric)</label>
+                    <input type="number" step="0.01" name="salary_amount" class="form-control" placeholder="e.g. 50000">
                 </div>
 
                 <h4 class="mt-4">Skills & Experience</h4>
@@ -198,22 +257,22 @@
                 <h4 class="mt-4">Documents Upload</h4>
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="required">Resume / CV</label>
-                        <input type="file" name="resume" class="form-control" required>
+                        <label>Resume / CV</label>
+                        <input type="file" name="resume" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="required">Aadhaar Front</label>
-                        <input type="file" name="aadhaar_front" class="form-control" required>
+                        <label>Aadhaar Front</label>
+                        <input type="file" name="aadhaar_front" class="form-control">
                     </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
-                        <label class="required">Aadhaar Back</label>
-                        <input type="file" name="aadhaar_back" class="form-control" required>
+                        <label>Aadhaar Back</label>
+                        <input type="file" name="aadhaar_back" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="required">Certificates</label>
-                        <input type="file" name="certificates" class="form-control" required>
+                        <label>Certificates</label>
+                        <input type="file" name="certificates" class="form-control">
                     </div>
                 </div>
 
@@ -283,18 +342,16 @@
         document.getElementById('add-employee-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = document.getElementById('add-employee-form');
-            const photoInput = form.querySelector('input[name="photo"]');
-            if (!photoInput || photoInput.files.length === 0) {
-                alert('Passport Size Photo is required.');
-                photoInput.focus();
-                return;
-            }
             const fd = new FormData(form);
             const res = await fetch('/api/admin/add-employee', { method: 'POST', body: fd });
             const data = await res.json();
             alert(data.message + (data.employee_code ? ' - ' + data.employee_code : ''));
-            if (res.ok) form.reset();
+            if (res.ok) {
+                form.reset();
+                window.location.href = '/admin/dashboard';
+            }
         });
     </script>
 </body>
+
 </html>

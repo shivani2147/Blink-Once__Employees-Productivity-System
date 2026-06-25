@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a{padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;text-decoration:none;}
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+    </style>
 </head>
+
 <body>
     <nav class="navbar glass-panel">
         <div class="nav-brand">
@@ -16,13 +25,21 @@
         </div>
         <div class="nav-links">
             <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
-            <a href="/admin/add-employee" class="btn btn-outline btn-sm"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
-            <a href="/admin/view-employees" class="btn btn-outline btn-sm"><i class="fa-solid fa-users"></i> View Employees</a>
-            <a href="/admin/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
-            <a href="/admin/settings" class="btn btn-outline btn-sm"><i class="fa-solid fa-gear"></i> Settings</a>
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
             <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
         </div>
     </nav>
+
+    <div class="admin-nav-secondary">
+        <a href="/admin/dashboard" class="active"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+        <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+        <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+        <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+        <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+        <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+        <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+        <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+    </div>
 
     <main class="main-container fade-in">
         <div class="flex-between mb-4">
@@ -55,7 +72,8 @@
         <div class="grid-2 mb-4">
             <div class="glass-panel p-4" style="padding: 1.5rem;">
                 <h3 class="mb-3">Task Duration</h3>
-                <p class="text-secondary mb-3" style="font-size: 0.9rem;">Estimated number of days taken to complete tasks based on camera usage.</p>
+                <p class="text-secondary mb-3" style="font-size: 0.9rem;">Estimated number of days taken to complete
+                    tasks based on camera usage.</p>
                 <canvas id="cameraChart" height="200"></canvas>
             </div>
 
@@ -91,14 +109,15 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-filter"></i> Apply Filters
                     </button>
-                    <button type="button" class="btn btn-outline" style="margin-left: 0.5rem;" onclick="clearFilters()">Clear</button>
+                    <button type="button" class="btn btn-outline" style="margin-left: 0.5rem;"
+                        onclick="clearFilters()">Clear</button>
                 </form>
             </div>
         </div>
 
         <div class="glass-panel mb-4" style="padding: 1.5rem;">
             <h3 class="mb-3">All Productivity Records</h3>
-            
+
             <div id="no-records" class="text-center text-secondary py-4" style="display:none; padding: 2rem 0;">
                 <p>No records found matching your criteria.</p>
             </div>
@@ -166,7 +185,7 @@
             const cliF = document.getElementById('client_filter').value;
             const proF = document.getElementById('project_filter').value;
             const staF = document.getElementById('status_filter').value;
-            
+
             const params = new URLSearchParams();
             if (empF) params.append('employee_filter', empF);
             if (cliF) params.append('client_filter', cliF);
@@ -175,7 +194,7 @@
 
             const res = await fetch('/api/admin/data?' + params.toString());
             const data = await res.json();
-            
+
             // Update stats
             document.getElementById('stat-emp').textContent = data.stats.total_employees;
             document.getElementById('stat-proj').textContent = data.stats.total_projects;
@@ -193,10 +212,10 @@
             } else {
                 document.getElementById('no-records').style.display = 'none';
                 document.getElementById('records-container').style.display = 'block';
-                
+
                 const tbody = document.getElementById('records-table-body');
                 tbody.innerHTML = '';
-                
+
                 data.records.forEach(r => {
                     const statusClass = r.status.toLowerCase().replace(' ', '');
                     tbody.innerHTML += `
@@ -277,4 +296,5 @@
         }
     </script>
 </body>
+
 </html>

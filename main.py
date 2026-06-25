@@ -36,6 +36,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Blink Once Employees Productivity System", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 os.makedirs("static/css", exist_ok=True)
 os.makedirs("static/js", exist_ok=True)
 os.makedirs("static/images", exist_ok=True)
@@ -90,3 +98,18 @@ async def admin_add_employee_page():
 async def admin_view_employees_page():
     return FileResponse("public/admin_view_employees.html")
 
+@app.get("/admin/performance")
+async def admin_performance_page():
+    return FileResponse("public/admin_performance.html")
+
+@app.get("/admin/attendance")
+async def admin_attendance_page():
+    return FileResponse("public/admin_attendance.html")
+
+@app.get("/admin/tasks")
+async def admin_tasks_page():
+    return FileResponse("public/admin_tasks.html")
+
+@app.get("/admin/leaves")
+async def admin_leaves_page():
+    return FileResponse("public/admin_leaves.html")

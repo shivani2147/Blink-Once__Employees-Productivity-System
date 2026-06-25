@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Management | Blink Once Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary {
+            display: flex; gap: 0.5rem; flex-wrap: wrap;
+            padding: 0.75rem 2.5rem;
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+        .dark-theme .admin-nav-secondary { background: rgba(17,24,39,0.4); }
+        .admin-nav-secondary a {
+            padding: 0.4rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex; align-items: center; gap: 0.4rem;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .admin-nav-secondary a:hover { background: rgba(79,70,229,0.08); color: var(--accent-primary); }
+        .admin-nav-secondary a.active { background: rgba(79,70,229,0.12); color: var(--accent-primary); }
+
+        .stat-cards-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 1.25rem; margin-bottom: 2rem; }
+        @media(max-width:900px){ .stat-cards-row{grid-template-columns:repeat(2,1fr);} }
+        .stat-mini { padding: 1.25rem 1.5rem; border-radius: var(--border-radius); }
+        .stat-mini .label { font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-secondary); margin-bottom:0.5rem; }
+        .stat-mini .value { font-size:2rem; font-weight:700; letter-spacing:-0.5px; }
+
+        .filter-bar { display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.5rem; }
+        .filter-bar .form-group { margin-bottom:0; flex:1; min-width:160px; }
+        .filter-bar .form-group label { font-size:0.78rem; }
+
+        .row-late td { background: rgba(217,119,6,0.04) !important; }
+        .row-missing td { background: rgba(220,38,38,0.04) !important; }
+        .row-absent td { background: rgba(0,0,0,0.02) !important; }
+
+        .badge-present  { background:rgba(5,150,105,0.1);  color:#059669; border:1px solid rgba(5,150,105,0.2); }
+        .badge-absent   { background:rgba(220,38,38,0.1);  color:#dc2626; border:1px solid rgba(220,38,38,0.2); }
+        .badge-late     { background:rgba(217,119,6,0.1);  color:#d97706; border:1px solid rgba(217,119,6,0.2); }
+        .badge-missing  { background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.25); }
+
+        .emp-avatar {
+            width:32px;height:32px;border-radius:50%;
+            background:var(--accent-gradient);
+            color:white; font-size:0.75rem; font-weight:700;
+            display:inline-flex;align-items:center;justify-content:center;
+            flex-shrink:0; margin-right:0.6rem;
+        }
+        .emp-cell { display:flex; align-items:center; }
+    </style>
+</head>
+<body>
+<nav class="navbar glass-panel">
+    <div class="nav-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span></div>
+    <div class="nav-links">
+        <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+        <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="admin-nav-secondary">
+    <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+    <a href="/admin/attendance" class="active"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+    <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+    <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+    <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+    <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+    <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+    <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+</div>
+
+<main class="main-container fade-in">
+    <div class="flex-between mb-4">
+        <div>
+            <h2><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Attendance Management</h2>
+            <p class="text-secondary" style="font-size:0.88rem;margin-top:0.25rem;">Track punch-ins, punch-outs, late arrivals, and missing records.</p>
+        </div>
+        <button class="btn btn-outline" onclick="exportCSV()" id="export-btn">
+            <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-cards-row">
+        <div class="stat-mini glass-panel">
+            <div class="label">Present Today</div>
+            <div class="value" style="color:var(--success)" id="s-present">—</div>
+        </div>
+        <div class="stat-mini glass-panel">
+            <div class="label">Absent Today</div>
+            <div class="value" style="color:var(--danger)" id="s-absent">—</div>
+        </div>
+        <div class="stat-mini glass-panel">
+            <div class="label">Late Arrivals</div>
+            <div class="value" style="color:var(--warning)" id="s-late">—</div>
+        </div>
+        <div class="stat-mini glass-panel">
+            <div class="label">Missing Punch-Outs</div>
+            <div class="value" style="color:#ef4444" id="s-missing">—</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-panel" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+        <div class="filter-bar">
+            <div class="form-group">
+                <label>Employee</label>
+                <select id="f-emp" class="form-control">
+                    <option value="">All Employees</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="f-from" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="f-to" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="f-status" class="form-control">
+                    <option value="">All</option>
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Filter</button>
+                <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="glass-panel" style="padding:1.5rem;">
+        <div id="empty-state" class="text-center text-secondary" style="padding:3rem;display:none;">
+            <i class="fa-solid fa-calendar-xmark" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:1rem;"></i>
+            <p>No attendance records found</p>
+        </div>
+        <div class="table-container" id="table-wrap" style="display:none;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Punch In</th>
+                        <th>Punch Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                        <th>Flags</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="att-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content glass-panel" style="max-width:420px;">
+        <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        <h3 class="mb-3 gradient-text">Edit Attendance Record</h3>
+        <form id="edit-form">
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label>Status</label>
+                <select id="edit-status" class="form-control">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                </select>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Punch In (e.g. 09:30 AM)</label>
+                    <input type="text" id="edit-in" class="form-control" placeholder="09:30 AM">
+                </div>
+                <div class="form-group">
+                    <label>Punch Out (e.g. 06:00 PM)</label>
+                    <input type="text" id="edit-out" class="form-control" placeholder="06:00 PM">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+                <i class="fa-solid fa-floppy-disk"></i> Save Changes
+            </button>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script>
+let employees = [];
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (!me.ok) { location.href='/login'; return; }
+        const u = await me.json();
+        if (u.role !== 'Admin') { location.href='/employee/dashboard'; return; }
+        document.getElementById('nav-user-name').textContent = u.employee_name;
+    } catch { location.href='/login'; return; }
+
+    // Set default date range (last 30 days)
+    const today = new Date();
+    const from  = new Date(); from.setDate(today.getDate() - 30);
+    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
+    document.getElementById('f-from').value = from.toISOString().split('T')[0];
+
+    await loadEmployees();
+    await loadData();
+});
+
+async function loadEmployees() {
+    const res = await fetch('/api/admin/employees');
+    if (!res.ok) return;
+    const d = await res.json();
+    employees = d.employees || [];
+    const sel = document.getElementById('f-emp');
+    employees.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.id; o.textContent = e.employee_name;
+        sel.appendChild(o);
+    });
+}
+
+async function loadData() {
+    const params = new URLSearchParams();
+    const emp = document.getElementById('f-emp').value;
+    const from = document.getElementById('f-from').value;
+    const to   = document.getElementById('f-to').value;
+    const sta  = document.getElementById('f-status').value;
+    if (emp) params.set('employee_id', emp);
+    if (from) params.set('date_from', from);
+    if (to)   params.set('date_to', to);
+    if (sta)  params.set('status_filter', sta);
+
+    const res = await fetch('/api/admin/attendance?' + params);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Summaries
+    document.getElementById('s-present').textContent = d.summary.present_today;
+    document.getElementById('s-absent').textContent  = d.summary.absent_today;
+    document.getElementById('s-late').textContent    = d.summary.late_today;
+    document.getElementById('s-missing').textContent = d.summary.missing_punchout;
+
+    const tbody = document.getElementById('att-tbody');
+    const empty = document.getElementById('empty-state');
+    const wrap  = document.getElementById('table-wrap');
+
+    if (!d.records.length) {
+        empty.style.display = 'block'; wrap.style.display = 'none'; return;
+    }
+    empty.style.display = 'none'; wrap.style.display = 'block';
+
+    tbody.innerHTML = d.records.map(r => {
+        const sc = r.status.toLowerCase();
+        let rowClass = '';
+        if (r.status === 'Late') rowClass = 'row-late';
+        else if (r.missing_punchout) rowClass = 'row-missing';
+        else if (r.status === 'Absent') rowClass = 'row-absent';
+
+        const initials = r.employee_name.split(' ').map(w=>w[0]).slice(0,2).join('');
+        const flags = [];
+        if (r.status === 'Late') flags.push(`<span class="badge badge-late" style="font-size:0.68rem;">Late</span>`);
+        if (r.missing_punchout) flags.push(`<span class="badge badge-missing" style="font-size:0.68rem;">Missing Punch-Out</span>`);
+        if (!flags.length) flags.push('<span style="color:var(--text-secondary);font-size:0.82rem;">—</span>');
+
+        return `<tr class="${rowClass}">
+            <td>
+                <div class="emp-cell">
+                    <div class="emp-avatar">${initials}</div>
+                    <div>
+                        <strong style="font-size:0.9rem;">${r.employee_name}</strong>
+                        <span style="display:block;font-size:0.72rem;color:var(--text-secondary);">${r.employee_code}</span>
+                    </div>
+                </div>
+            </td>
+            <td style="font-size:0.88rem;">${r.date}</td>
+            <td style="font-size:0.88rem;">${r.time_in || '—'}</td>
+            <td style="font-size:0.88rem;">${r.time_out || '—'}</td>
+            <td style="font-size:0.88rem;">${r.total_hours ? r.total_hours + ' hrs' : '—'}</td>
+            <td><span class="badge badge-${sc}">${r.status}</span></td>
+            <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">${flags.join('')}</td>
+            <td>
+                <button class="btn btn-outline btn-sm" onclick='openEdit(${JSON.stringify(r)})'>
+                    <i class="fa-solid fa-pen"></i> Edit
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function clearFilters() {
+    document.getElementById('f-emp').value = '';
+    document.getElementById('f-status').value = '';
+    const today = new Date();
+    const from  = new Date(); from.setDate(today.getDate() - 30);
+    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
+    document.getElementById('f-from').value = from.toISOString().split('T')[0];
+    loadData();
+}
+
+function openEdit(r) {
+    document.getElementById('edit-id').value     = r.id;
+    document.getElementById('edit-status').value = r.status;
+    document.getElementById('edit-in').value     = r.time_in  || '';
+    document.getElementById('edit-out').value    = r.time_out || '';
+    openModal('editModal');
+}
+
+document.getElementById('edit-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id  = document.getElementById('edit-id').value;
+    const body = {
+        status:   document.getElementById('edit-status').value,
+        time_in:  document.getElementById('edit-in').value  || null,
+        time_out: document.getElementById('edit-out').value || null,
+    };
+    const res = await fetch(`/api/admin/attendance/${id}`, {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    if (res.ok) { closeModal('editModal'); loadData(); }
+});
+
+function exportCSV() {
+    const emp  = document.getElementById('f-emp').value;
+    const from = document.getElementById('f-from').value;
+    const to   = document.getElementById('f-to').value;
+    const params = new URLSearchParams();
+    if (emp)  params.set('employee_id', emp);
+    if (from) params.set('date_from', from);
+    if (to)   params.set('date_to', to);
+    window.location.href = '/api/admin/attendance/export?' + params;
+}
+
+async function logout() {
+    await fetch('/api/logout', {method:'POST'});
+    location.href = '/login';
+}
+</script>
+</body>
+</html>

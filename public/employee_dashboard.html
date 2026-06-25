@@ -4,9 +4,220 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Dashboard | Blink Once EPS</title>
+    <meta name="description" content="Employee productivity dashboard — track your tasks, attendance, leaves and deadlines.">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="/static/js/theme.js" defer></script>
+    <style>
+        /* ── Dashboard-specific overrides ── */
+        .dashboard-top-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 1100px) { .dashboard-top-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 700px)  { .dashboard-top-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .stat-card .stat-icon {
+            width: 42px; height: 42px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+        .stat-card .stat-value { font-size: 2rem; }
+        .stat-card .stat-title { font-size: 0.78rem; }
+
+        /* Middle section grid */
+        .mid-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 900px) { .mid-grid { grid-template-columns: 1fr; } }
+
+        /* Attendance widget */
+        .attendance-widget {
+            padding: 1.75rem;
+        }
+        .attendance-status-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .status-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-dot.present { background: var(--success); box-shadow: 0 0 8px rgba(5,150,105,0.5); }
+        .status-dot.absent  { background: var(--danger);  box-shadow: 0 0 8px rgba(220,38,38,0.4); }
+        .attendance-times {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .time-chip {
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            font-size: 0.85rem;
+        }
+        .time-chip span {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+        }
+        .time-chip strong { font-size: 1.1rem; }
+        .attendance-btns { display: flex; gap: 0.75rem; }
+        .attendance-btns .btn { flex: 1; justify-content: center; }
+        .btn-success {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: white;
+            box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+        }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(5,150,105,0.35); }
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220,38,38,0.2);
+        }
+        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(220,38,38,0.35); }
+
+        /* Notification panel */
+        .notif-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+        .notif-item {
+            display: flex; gap: 0.75rem; align-items: flex-start;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.025);
+            border: 1px solid var(--border-color);
+            font-size: 0.88rem;
+            line-height: 1.4;
+        }
+        .notif-item i { color: var(--accent-primary); margin-top: 2px; flex-shrink: 0; }
+
+        /* To-Do / Deadline cards */
+        .task-cards { display: flex; flex-direction: column; gap: 0.6rem; }
+        .task-item {
+            display: flex; align-items: center; gap: 1rem;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.02);
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+        .task-item:hover { border-color: rgba(79,70,229,0.2); transform: translateX(2px); }
+        .task-priority-bar {
+            width: 4px; height: 40px; border-radius: 4px; flex-shrink: 0;
+        }
+        .priority-high   { background: var(--danger); }
+        .priority-medium { background: var(--warning); }
+        .priority-low    { background: var(--success); }
+        .task-info { flex: 1; }
+        .task-info strong { font-size: 0.92rem; display: block; margin-bottom: 0.15rem; }
+        .task-info small { font-size: 0.78rem; color: var(--text-secondary); }
+        .days-chip {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .days-today  { background: rgba(220,38,38,0.1);  color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
+        .days-soon   { background: rgba(217,119,6,0.1);  color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
+        .days-fine   { background: rgba(5,150,105,0.08); color: #059669; border: 1px solid rgba(5,150,105,0.15); }
+        .days-overdue{ background: rgba(220,38,38,0.15); color: #b91c1c; border: 1px solid rgba(220,38,38,0.3); }
+
+        /* Section header row */
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.25rem;
+        }
+        .section-header h3 { margin-bottom: 0; font-size: 1rem; }
+
+        /* Leave table inside panel */
+        .leave-table-wrap { overflow-x: auto; }
+        .leave-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        .leave-table th, .leave-table td {
+            padding: 0.7rem 0.9rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .leave-table th {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            background: rgba(241,245,249,0.7);
+        }
+        .badge-approved { background: rgba(5,150,105,0.1); color: #059669; border: 1px solid rgba(5,150,105,0.2); }
+        .badge-rejected { background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
+        .badge-pending  { background: rgba(217,119,6,0.1);  color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
+
+        /* Records section */
+        .records-section { margin-top: 2rem; }
+
+        /* Panel padding helper */
+        .panel-padded { padding: 1.5rem 1.75rem; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: var(--text-secondary);
+        }
+        .empty-state i { font-size: 2.2rem; margin-bottom: 0.75rem; opacity: 0.4; display: block; }
+        .empty-state p { font-size: 0.88rem; }
+
+        /* Dark overrides for new elements */
+        .dark-theme .time-chip,
+        .dark-theme .task-item,
+        .dark-theme .notif-item {
+            background: rgba(255,255,255,0.03);
+        }
+        .dark-theme .leave-table th {
+            background: rgba(17,24,39,0.7);
+        }
+        .dark-theme .badge-pending  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .dark-theme .badge-approved { background: rgba(16,185,129,0.12); color: #34d399; }
+        .dark-theme .badge-rejected { background: rgba(239,68,68,0.12);  color: #f87171; }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex; gap: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1.25rem;
+        }
+        .tab-btn {
+            padding: 0.55rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .tab-btn.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+    </style>
 </head>
 <body>
     <nav class="navbar glass-panel">
@@ -17,219 +228,554 @@
             <span class="user-greeting">Hello, <strong id="nav-user-name">Employee</strong></span>
             <a href="/employee/profile" class="btn btn-outline btn-sm"><i class="fa-solid fa-user"></i> My Profile</a>
             <a href="/employee/dashboard" class="btn btn-outline btn-sm"><i class="fa-solid fa-house"></i> Dashboard</a>
+            <button id="theme-toggle-btn" class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme">
+                <i class="fa-solid fa-moon"></i>
+            </button>
             <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
         </div>
     </nav>
 
     <main class="main-container fade-in">
-        <div class="flex-between mb-4">
-            <h2><i class="fa-solid fa-briefcase"></i> My Productivity Records</h2>
-            <button class="btn btn-primary" onclick="openModal('addModal')">
-                <i class="fa-solid fa-plus"></i> Add Record
-            </button>
-        </div>
 
-        <div class="glass-panel" style="padding: 1.5rem;">
-            <div id="no-records" class="text-center" style="display: none; padding: 3rem 0;">
-                <i class="fa-solid fa-folder-open text-secondary" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                <h3>No records found</h3>
-                <p class="text-secondary">Click 'Add Record' to create your first productivity entry.</p>
+        <!-- ── STAT CARDS ── -->
+        <div class="dashboard-top-grid" id="stats-grid">
+            <div class="stat-card glass-panel">
+                <div class="stat-icon" style="background:rgba(79,70,229,0.1);color:var(--accent-primary)"><i class="fa-solid fa-list-check"></i></div>
+                <div class="stat-title">Assigned</div>
+                <div class="stat-value gradient-text" id="stat-assigned">–</div>
             </div>
-            
-            <div id="records-container" class="table-container" style="display: none;">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Client</th>
-                            <th>Project</th>
-                            <th>Status</th>
-                            <th>Deadline</th>
-                            <th>Cameras</th>
-                            <th>Est. Workload</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="records-table-body">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
+            <div class="stat-card glass-panel">
+                <div class="stat-icon" style="background:rgba(5,150,105,0.1);color:#059669"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stat-title">Completed</div>
+                <div class="stat-value" style="color:#059669" id="stat-completed">–</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-icon" style="background:rgba(217,119,6,0.1);color:#d97706"><i class="fa-solid fa-hourglass-half"></i></div>
+                <div class="stat-title">Pending</div>
+                <div class="stat-value" style="color:#d97706" id="stat-pending">–</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-icon" style="background:rgba(37,99,235,0.1);color:#2563eb"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-title">Upcoming</div>
+                <div class="stat-value" style="color:#2563eb" id="stat-upcoming">–</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-icon" style="background:rgba(220,38,38,0.1);color:#dc2626"><i class="fa-solid fa-umbrella-beach"></i></div>
+                <div class="stat-title">Leaves Taken</div>
+                <div class="stat-value" style="color:#dc2626" id="stat-leaves">–</div>
             </div>
         </div>
 
-        <!-- Add Record Modal -->
-        <div id="addModal" class="modal">
-            <div class="modal-content glass-panel">
-                <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
-                <h3 class="mb-3 gradient-text">Add Productivity Record</h3>
-                
-                <form id="add-form">
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Client Name</label>
-                            <input type="text" name="client_name" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Date</label>
-                            <input type="date" name="date" class="form-control" required>
-                        </div>
-                    </div>
-                    
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Project Name</label>
-                            <input type="text" name="project_name" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Shoot Type</label>
-                            <select name="shoot_type" class="form-control" required>
-                                <option value="Wedding">Wedding</option>
-                                <option value="Pre-Wedding">Pre-Wedding</option>
-                                <option value="Engagement">Engagement</option>
-                                <option value="Corporate">Corporate</option>
-                                <option value="Birthday">Birthday</option>
-                                <option value="Events">Events</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                    </div>
+        <!-- ── MIDDLE GRID: Attendance + Notifications ── -->
+        <div class="mid-grid">
 
-                    <div class="form-group">
-                        <label>Editing Type</label>
-                        <input type="text" name="editing_type" class="form-control" placeholder="eg. Traditional, Reels, Function" required>
+            <!-- Attendance Widget -->
+            <div class="glass-panel attendance-widget">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Today's Attendance</h3>
+                    <span id="att-date" class="text-secondary" style="font-size:0.82rem"></span>
+                </div>
+                <div class="attendance-status-row">
+                    <div class="status-dot absent" id="att-dot"></div>
+                    <span id="att-status-text" style="font-weight:600">Absent</span>
+                </div>
+                <div class="attendance-times">
+                    <div class="time-chip">
+                        <span>Punch In</span>
+                        <strong id="att-in">—</strong>
                     </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Start Date</label>
-                            <input type="date" name="start_date" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>End Date</label>
-                            <input type="date" name="end_date" class="form-control" required>
-                        </div>
+                    <div class="time-chip">
+                        <span>Punch Out</span>
+                        <strong id="att-out">—</strong>
                     </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Deadline Date</label>
-                            <input type="date" name="deadline_date" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Video Duration (hrs)</label>
-                            <input type="number" step="0.1" name="video_duration" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Cameras Used</label>
-                            <input type="number" name="cameras_used" class="form-control" min="1" value="1" required>
-                        </div>
+                    <div class="time-chip" style="grid-column:span 2;">
+                        <span>Total Hours</span>
+                        <strong id="att-hours">0 hrs</strong>
                     </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select name="status" class="form-control" required>
-                                <option value="Not Started">Not Started</option>
-                                <option value="Ongoing">Ongoing</option>
-                                <option value="Hold">Hold</option>
-                                <option value="Done">Done</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Uploaded to Drive?</label>
-                            <select name="uploaded_to_drive" class="form-control">
-                                <option value="No">No</option>
-                                <option value="Yes">Yes</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>Harddisk Number</label>
-                            <input type="text" name="harddisk_number" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Harddisk Directory</label>
-                            <input type="text" name="harddisk_directory" class="form-control" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Drive Link</label>
-                        <input type="url" name="drive_link" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Comments</label>
-                        <textarea name="comments" class="form-control" rows="3"></textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                        Save Record
+                </div>
+                <div class="attendance-btns">
+                    <button class="btn btn-success btn-sm" id="btn-punch-in" onclick="punchIn()">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> Punch In
                     </button>
-                </form>
+                    <button class="btn btn-danger btn-sm" id="btn-punch-out" onclick="punchOut()">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Punch Out
+                    </button>
+                </div>
+                <div id="att-msg" style="margin-top:0.75rem; font-size:0.82rem; color:var(--success); display:none;"></div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="glass-panel panel-padded">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-bell" style="color:var(--warning)"></i> Notifications</h3>
+                    <span id="notif-count" class="badge badge-pending" style="font-size:0.72rem">0</span>
+                </div>
+                <ul class="notif-list" id="notif-list">
+                    <li class="empty-state"><i class="fa-regular fa-bell-slash"></i><p>No notifications</p></li>
+                </ul>
             </div>
         </div>
 
-        <!-- Edit Record Modal -->
-        <div id="editModal" class="modal">
-            <div class="modal-content glass-panel" style="max-width: 400px;">
-                <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
-                <h3 class="mb-3 gradient-text">Update Record</h3>
-                
-                <form id="edit-form">
-                    <input type="hidden" id="edit_record_id" name="record_id">
+        <!-- ── SECOND MIDDLE GRID: To-Do + Upcoming Deadlines ── -->
+        <div class="mid-grid">
+
+            <!-- Today's To-Do -->
+            <div class="glass-panel panel-padded">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-circle-dot" style="color:var(--danger)"></i> Due Today</h3>
+                    <span id="todo-count" class="badge badge-notstarted" style="font-size:0.72rem">0 tasks</span>
+                </div>
+                <div class="task-cards" id="todo-list">
+                    <div class="empty-state"><i class="fa-regular fa-calendar-check"></i><p>Nothing due today 🎉</p></div>
+                </div>
+            </div>
+
+            <!-- Upcoming Deadlines -->
+            <div class="glass-panel panel-padded">
+                <div class="section-header">
+                    <h3><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Upcoming Deadlines</h3>
+                    <span id="upcoming-count" class="badge badge-pending" style="font-size:0.72rem">0 tasks</span>
+                </div>
+                <div class="task-cards" id="upcoming-list">
+                    <div class="empty-state"><i class="fa-regular fa-clock"></i><p>No upcoming deadlines</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── LEAVE MANAGEMENT (Tabbed) ── -->
+        <div class="glass-panel panel-padded mb-4">
+            <div class="section-header">
+                <h3><i class="fa-solid fa-umbrella-beach" style="color:#059669"></i> Leave Management</h3>
+                <button class="btn btn-primary btn-sm" onclick="openModal('leaveModal')">
+                    <i class="fa-solid fa-plus"></i> Apply Leave
+                </button>
+            </div>
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('leave-history-tab', this)">Leave History</button>
+            </div>
+            <div id="leave-history-tab" class="tab-pane active">
+                <div class="leave-table-wrap">
+                    <table class="leave-table" id="leave-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leave-table-body">
+                            <tr><td colspan="5" class="empty-state"><i class="fa-regular fa-calendar" style="font-size:1.2rem"></i><p>No leave records</p></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PRODUCTIVITY RECORDS ── -->
+        <div class="records-section">
+            <div class="flex-between mb-3">
+                <h2><i class="fa-solid fa-briefcase"></i> My Productivity Records</h2>
+                <button class="btn btn-primary" onclick="openModal('addModal')">
+                    <i class="fa-solid fa-plus"></i> Add Record
+                </button>
+            </div>
+
+            <div class="glass-panel" style="padding: 1.5rem;">
+                <div id="no-records" class="empty-state" style="display:none;">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <h3 style="margin-bottom:0.4rem;">No records found</h3>
+                    <p>Click 'Add Record' to create your first productivity entry.</p>
+                </div>
+
+                <div id="records-container" class="table-container" style="display:none;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Client</th>
+                                <th>Project</th>
+                                <th>Editing Type</th>
+                                <th>Status</th>
+                                <th>Deadline</th>
+                                <th>Cameras</th>
+                                <th>Est. Workload</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ── ADD RECORD MODAL ── -->
+    <div id="addModal" class="modal">
+        <div class="modal-content glass-panel">
+            <button class="modal-close" onclick="closeModal('addModal')">&times;</button>
+            <h3 class="mb-3 gradient-text">Add Productivity Record</h3>
+            <form id="add-form">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Client Name</label>
+                        <input type="text" name="client_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Project Name</label>
+                        <input type="text" name="project_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Shoot Type</label>
+                        <select name="shoot_type" class="form-control" required>
+                            <option value="Wedding">Wedding</option>
+                            <option value="Pre-Wedding">Pre-Wedding</option>
+                            <option value="Engagement">Engagement</option>
+                            <option value="Corporate">Corporate</option>
+                            <option value="Birthday">Birthday</option>
+                            <option value="Events">Events</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Editing Type</label>
+                    <input type="text" name="editing_type" class="form-control" placeholder="e.g. Traditional, Reels, Function" required>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" name="end_date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Deadline Date</label>
+                        <input type="date" name="deadline_date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Video Duration (hrs)</label>
+                        <input type="number" step="0.1" name="video_duration" class="form-control" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Cameras Used</label>
+                        <input type="number" name="cameras_used" class="form-control" min="1" value="1" required>
+                    </div>
                     <div class="form-group">
                         <label>Status</label>
-                        <select name="status" id="edit_status" class="form-control" required>
+                        <select name="status" class="form-control" required>
                             <option value="Not Started">Not Started</option>
                             <option value="Ongoing">Ongoing</option>
                             <option value="Hold">Hold</option>
                             <option value="Done">Done</option>
                         </select>
                     </div>
-
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Harddisk Number</label>
+                        <input type="text" name="harddisk_number" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Harddisk Directory</label>
+                        <input type="text" name="harddisk_directory" class="form-control" required>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Uploaded to Drive?</label>
+                        <select name="uploaded_to_drive" class="form-control">
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label>Drive Link</label>
-                        <input type="url" name="drive_link" id="edit_drive_link" class="form-control">
+                        <input type="url" name="drive_link" class="form-control">
                     </div>
-
-                    <div class="form-group">
-                        <label>Comments</label>
-                        <textarea name="comments" id="edit_comments" class="form-control" rows="3"></textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                        Update Record
-                    </button>
-                </form>
-            </div>
+                </div>
+                <div class="form-group">
+                    <label>Comments</label>
+                    <textarea name="comments" class="form-control" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Record
+                </button>
+            </form>
         </div>
-    </main>
+    </div>
+
+    <!-- ── EDIT RECORD MODAL ── -->
+    <div id="editModal" class="modal">
+        <div class="modal-content glass-panel" style="max-width:420px;">
+            <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+            <h3 class="mb-3 gradient-text">Update Record</h3>
+            <form id="edit-form">
+                <input type="hidden" id="edit_record_id">
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="edit_status" class="form-control" required>
+                        <option value="Not Started">Not Started</option>
+                        <option value="Ongoing">Ongoing</option>
+                        <option value="Hold">Hold</option>
+                        <option value="Done">Done</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Drive Link</label>
+                    <input type="url" id="edit_drive_link" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Comments</label>
+                    <textarea id="edit_comments" class="form-control" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+                    <i class="fa-solid fa-pen-to-square"></i> Update Record
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── APPLY LEAVE MODAL ── -->
+    <div id="leaveModal" class="modal">
+        <div class="modal-content glass-panel" style="max-width:460px;">
+            <button class="modal-close" onclick="closeModal('leaveModal')">&times;</button>
+            <h3 class="mb-3 gradient-text">Apply for Leave</h3>
+            <form id="leave-form">
+                <div class="form-group">
+                    <label>Leave Type</label>
+                    <select name="leave_type" class="form-control" required>
+                        <option value="Sick Leave">Sick Leave</option>
+                        <option value="Casual Leave">Casual Leave</option>
+                        <option value="Earned Leave">Earned Leave</option>
+                        <option value="Unpaid Leave">Unpaid Leave</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>From Date</label>
+                        <input type="date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>To Date</label>
+                        <input type="date" name="end_date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Application
+                </button>
+            </form>
+        </div>
+    </div>
 
     <script src="/static/js/main.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", async () => {
-            // Check auth
-            try {
-                const meRes = await fetch('/api/auth/me');
-                if (!meRes.ok) { window.location.href = '/login'; return; }
-                const user = await meRes.json();
-                document.getElementById('nav-user-name').textContent = user.employee_name;
-            } catch (e) {
-                window.location.href = '/login'; return;
-            }
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Auth check
+        try {
+            const meRes = await fetch('/api/auth/me');
+            if (!meRes.ok) { window.location.href = '/login'; return; }
+            const user = await meRes.json();
+            document.getElementById('nav-user-name').textContent = user.employee_name;
+        } catch (e) {
+            window.location.href = '/login'; return;
+        }
 
-            fetchData();
+        // Set today's date label
+        document.getElementById('att-date').textContent = new Date().toLocaleDateString('en-IN', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
-        async function fetchData() {
+        // Load all dashboard data
+        await loadDashboardData();
+        await fetchRecords();
+    });
+
+    /* ── Load /api/employee/data ── */
+    async function loadDashboardData() {
+        try {
             const res = await fetch('/api/employee/data');
+            if (!res.ok) return;
             const data = await res.json();
-            if (!data) {
-                return;
-            }
+
+            // Stats
+            document.getElementById('stat-assigned').textContent  = data.stats.assigned  ?? 0;
+            document.getElementById('stat-completed').textContent = data.stats.completed ?? 0;
+            document.getElementById('stat-pending').textContent   = data.stats.pending   ?? 0;
+            document.getElementById('stat-upcoming').textContent  = data.stats.upcoming  ?? 0;
+            document.getElementById('stat-leaves').textContent    = data.stats.leaves_taken ?? 0;
+
+            // Attendance
+            renderAttendance(data.attendance);
+
+            // Notifications
+            renderNotifications(data.notifications || []);
+
+            // Today's To-Do
+            renderToDoList(data.today_todo || []);
+
+            // Upcoming Deadlines
+            renderUpcoming(data.upcoming_deadlines || []);
+
+            // Leaves
+            renderLeaves(data.leaves || []);
+
+        } catch (err) {
+            console.error("Dashboard data error:", err);
+        }
+    }
+
+    /* ── Attendance ── */
+    function renderAttendance(att) {
+        const dot  = document.getElementById('att-dot');
+        const text = document.getElementById('att-status-text');
+        const inEl = document.getElementById('att-in');
+        const outEl= document.getElementById('att-out');
+        const hrEl = document.getElementById('att-hours');
+
+        if (att.status === 'Present') {
+            dot.className  = 'status-dot present';
+            text.textContent = '✅ Present';
+            text.style.color = 'var(--success)';
+        } else {
+            dot.className  = 'status-dot absent';
+            text.textContent = '❌ Absent';
+            text.style.color = 'var(--danger)';
+        }
+        inEl.textContent  = att.time_in  || '—';
+        outEl.textContent = att.time_out || '—';
+        hrEl.textContent  = att.total_hours ? att.total_hours + ' hrs' : '0 hrs';
+
+        // Toggle button states
+        document.getElementById('btn-punch-in').disabled  = !!att.time_in;
+        document.getElementById('btn-punch-out').disabled = !att.time_in || !!att.time_out;
+        if (att.time_in)  document.getElementById('btn-punch-in').style.opacity  = att.time_in  ? '0.5' : '1';
+        if (att.time_out) document.getElementById('btn-punch-out').style.opacity = att.time_out ? '0.5' : '1';
+    }
+
+    async function punchIn() {
+        const res  = await fetch('/api/employee/attendance/punch-in', { method: 'POST' });
+        const data = await res.json();
+        showAttMsg(data.message, res.ok);
+        await loadDashboardData();
+    }
+
+    async function punchOut() {
+        const res  = await fetch('/api/employee/attendance/punch-out', { method: 'POST' });
+        const data = await res.json();
+        showAttMsg(data.message, res.ok);
+        await loadDashboardData();
+    }
+
+    function showAttMsg(msg, ok) {
+        const el = document.getElementById('att-msg');
+        el.textContent = msg;
+        el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    /* ── Notifications ── */
+    function renderNotifications(items) {
+        const list = document.getElementById('notif-list');
+        document.getElementById('notif-count').textContent = items.length;
+        if (!items.length) return;
+        list.innerHTML = items.map(n => `
+            <li class="notif-item">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>${n}</span>
+            </li>
+        `).join('');
+    }
+
+    /* ── To-Do ── */
+    function renderToDoList(items) {
+        const el = document.getElementById('todo-list');
+        document.getElementById('todo-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
+        if (!items.length) {
+            el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-calendar-check"></i><p>Nothing due today 🎉</p></div>';
+            return;
+        }
+        el.innerHTML = items.map(t => taskCard(t, 'today')).join('');
+    }
+
+    /* ── Upcoming ── */
+    function renderUpcoming(items) {
+        const el = document.getElementById('upcoming-list');
+        document.getElementById('upcoming-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
+        if (!items.length) {
+            el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-clock"></i><p>No upcoming deadlines</p></div>';
+            return;
+        }
+        el.innerHTML = items.slice(0, 6).map(t => taskCard(t, 'upcoming')).join('');
+    }
+
+    function taskCard(t, mode) {
+        const days = t.days_remaining;
+        let chip = '';
+        if (mode === 'today') {
+            chip = `<span class="days-chip days-today">Due Today</span>`;
+        } else if (days !== undefined) {
+            if (days < 0)      chip = `<span class="days-chip days-overdue">${Math.abs(days)}d overdue</span>`;
+            else if (days <= 2) chip = `<span class="days-chip days-soon">${days}d left</span>`;
+            else                chip = `<span class="days-chip days-fine">${days}d left</span>`;
+        }
+        const priority = (t.priority || 'medium').toLowerCase();
+        return `
+            <div class="task-item">
+                <div class="task-priority-bar priority-${priority}"></div>
+                <div class="task-info">
+                    <strong>${t.project_name}</strong>
+                    <small>${t.client_name}${t.deadline_date ? ' · ' + t.deadline_date : ''}</small>
+                </div>
+                ${chip}
+                <span class="badge badge-${(t.status||'').toLowerCase().replace(/ /g,'-')}" style="font-size:0.7rem">${t.status}</span>
+            </div>
+        `;
+    }
+
+    /* ── Leaves ── */
+    function renderLeaves(leaves) {
+        const tbody = document.getElementById('leave-table-body');
+        if (!leaves.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:0.88rem;">No leave records found</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = leaves.map(l => `
+            <tr>
+                <td>${l.leave_type}</td>
+                <td>${l.start_date}</td>
+                <td>${l.end_date}</td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.reason}">${l.reason}</td>
+                <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
+            </tr>
+        `).join('');
+    }
+
+    /* ── Records Table ── */
+    async function fetchRecords() {
+        try {
+            const res = await fetch('/api/employee/records');
+            if (!res.ok) return;
+            const data = await res.json();
 
             if (!data.records || data.records.length === 0) {
                 document.getElementById('no-records').style.display = 'block';
@@ -239,81 +785,132 @@
 
             document.getElementById('no-records').style.display = 'none';
             document.getElementById('records-container').style.display = 'block';
-            
+
             const tbody = document.getElementById('records-table-body');
-            tbody.innerHTML = '';
-            
-            data.records.forEach(r => {
-                const statusClass = r.status.toLowerCase().replace(' ', '');
-                tbody.innerHTML += `
+            tbody.innerHTML = data.records.map(r => {
+                const sc = (r.status || '').toLowerCase().replace(/ /g, '-');
+                return `
                     <tr>
-                        <td>${r.date}</td>
+                        <td>${r.date || '—'}</td>
                         <td>${r.client_name}</td>
                         <td>${r.project_name}</td>
-                        <td><span class="badge badge-${statusClass}">${r.status}</span></td>
-                        <td>${r.deadline_date || '-'}</td>
+                        <td>${r.editing_type || '—'}</td>
+                        <td><span class="badge badge-${sc}">${r.status}</span></td>
+                        <td>${r.deadline_date || '—'}</td>
                         <td>${r.cameras_used}</td>
-                        <td>${Math.round(parseFloat(r.expected_workload_hours))} hrs</td>
+                        <td>${Math.round(parseFloat(r.expected_workload_hours) || 0)} hrs</td>
                         <td>
-                            <button class="btn btn-outline btn-sm" onclick="openEditModal(${r.id}, '${r.status}', '${r.drive_link}', '${r.comments}')">
+                            <button class="btn btn-outline btn-sm"
+                                onclick="openEditModal(${r.id}, '${r.status}', '${r.drive_link}', '${(r.comments || '').replace(/'/g, '&#39;')}')">
                                 <i class="fa-solid fa-pen"></i> Edit
                             </button>
                         </td>
                     </tr>
                 `;
-            });
+            }).join('');
+        } catch (err) {
+            console.error("Records error:", err);
         }
+    }
 
-        // Add
-        document.getElementById('add-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-            data.video_duration = parseFloat(data.video_duration);
-            data.cameras_used = parseInt(data.cameras_used);
+    /* ── Add Record Form ── */
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        data.video_duration = parseFloat(data.video_duration);
+        data.cameras_used   = parseInt(data.cameras_used);
 
-            await fetch('/api/employee/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+        const btn = e.target.querySelector('[type=submit]');
+        btn.textContent = 'Saving…'; btn.disabled = true;
+
+        const res = await fetch('/api/employee/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Record';
+        btn.disabled = false;
+
+        if (res.ok) {
             closeModal('addModal');
             e.target.reset();
-            fetchData();
+            await fetchRecords();
+            await loadDashboardData();
+        } else {
+            const err = await res.json();
+            alert('Error: ' + (err.detail || 'Could not save record'));
+        }
+    });
+
+    /* ── Edit Record Form ── */
+    document.getElementById('edit-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit_record_id').value;
+        const data = {
+            status:     document.getElementById('edit_status').value,
+            drive_link: document.getElementById('edit_drive_link').value,
+            comments:   document.getElementById('edit_comments').value
+        };
+
+        await fetch(`/api/employee/edit/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        closeModal('editModal');
+        await fetchRecords();
+        await loadDashboardData();
+    });
+
+    /* ── Leave Form ── */
+    document.getElementById('leave-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const btn  = e.target.querySelector('[type=submit]');
+        btn.textContent = 'Submitting…'; btn.disabled = true;
+
+        const res = await fetch('/api/employee/leave/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         });
 
-        // Edit
-        document.getElementById('edit-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('edit_record_id').value;
-            const data = {
-                status: document.getElementById('edit_status').value,
-                drive_link: document.getElementById('edit_drive_link').value,
-                comments: document.getElementById('edit_comments').value
-            };
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Application';
+        btn.disabled = false;
 
-            await fetch(`/api/employee/edit/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            closeModal('editModal');
-            fetchData();
-        });
-
-        // Open edit modal custom
-        function openEditModal(id, currentStatus, driveLink, comments) {
-            document.getElementById('edit_record_id').value = id;
-            document.getElementById('edit_status').value = currentStatus;
-            document.getElementById('edit_drive_link').value = driveLink;
-            document.getElementById('edit_comments').value = comments;
-            openModal('editModal');
+        if (res.ok) {
+            closeModal('leaveModal');
+            e.target.reset();
+            await loadDashboardData();
+        } else {
+            const err = await res.json();
+            alert('Error: ' + (err.detail || 'Could not submit leave'));
         }
+    });
 
-        async function logout() {
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/login';
-        }
+    /* ── Modal helpers ── */
+    function openEditModal(id, status, driveLink, comments) {
+        document.getElementById('edit_record_id').value  = id;
+        document.getElementById('edit_status').value     = status;
+        document.getElementById('edit_drive_link').value = driveLink;
+        document.getElementById('edit_comments').value   = comments;
+        openModal('editModal');
+    }
+
+    /* ── Tab switcher ── */
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    /* ── Logout ── */
+    async function logout() {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login';
+    }
     </script>
 </body>
 </html>

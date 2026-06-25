@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Performance | Blink Once Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a{padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;text-decoration:none;}
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+
+        .stat-cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;margin-bottom:2rem;}
+        @media(max-width:900px){.stat-cards-row{grid-template-columns:repeat(2,1fr);}}
+        .stat-mini{padding:1.25rem 1.5rem;border-radius:var(--border-radius);}
+        .stat-mini .label{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:0.5rem;}
+        .stat-mini .value{font-size:2rem;font-weight:700;letter-spacing:-0.5px;}
+
+        .mid-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem;}
+        @media(max-width:900px){.mid-grid{grid-template-columns:1fr;}}
+
+        .filter-bar{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.5rem;}
+        .filter-bar .form-group{margin-bottom:0;flex:1;min-width:160px;}
+        .filter-bar .form-group label{font-size:0.78rem;}
+
+        /* Leaderboard */
+        .leaderboard{display:flex;flex-direction:column;gap:0.6rem;}
+        .lb-row{display:flex;align-items:center;gap:1rem;padding:0.85rem 1rem;border-radius:10px;border:1px solid var(--border-color);background:rgba(0,0,0,0.02);transition:border-color 0.2s;}
+        .lb-row:hover{border-color:rgba(79,70,229,0.2);}
+        .lb-rank{font-size:1.2rem;font-weight:700;width:28px;text-align:center;flex-shrink:0;}
+        .lb-rank.gold  {color:#f59e0b;}
+        .lb-rank.silver{color:#94a3b8;}
+        .lb-rank.bronze{color:#92400e;}
+        .emp-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-gradient);color:white;font-size:0.8rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .lb-info{flex:1;}
+        .lb-info strong{font-size:0.9rem;display:block;}
+        .lb-info small{font-size:0.75rem;color:var(--text-secondary);}
+        .score-chip{padding:0.3rem 0.75rem;border-radius:20px;font-size:0.78rem;font-weight:700;}
+        .score-excellent{background:rgba(5,150,105,0.1); color:#059669;border:1px solid rgba(5,150,105,0.2);}
+        .score-good    {background:rgba(37,99,235,0.1);  color:#2563eb;border:1px solid rgba(37,99,235,0.2);}
+        .score-average {background:rgba(217,119,6,0.1);  color:#d97706;border:1px solid rgba(217,119,6,0.2);}
+        .score-attention{background:rgba(220,38,38,0.1); color:#dc2626;border:1px solid rgba(220,38,38,0.2);}
+
+        /* Score bar */
+        .score-bar-wrap{display:flex;align-items:center;gap:0.6rem;}
+        .score-bar{height:6px;border-radius:3px;background:var(--border-color);flex:1;}
+        .score-bar-fill{height:100%;border-radius:3px;background:var(--accent-gradient);transition:width 0.8s cubic-bezier(0.16,1,0.3,1);}
+
+        /* Per-employee table */
+        .badge-excellent{background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.2);}
+        .badge-good     {background:rgba(37,99,235,0.1); color:#2563eb;border:1px solid rgba(37,99,235,0.2);}
+        .badge-average  {background:rgba(217,119,6,0.1); color:#d97706;border:1px solid rgba(217,119,6,0.2);}
+        .badge-needs-attention{background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.2);}
+
+        .perc-pill{display:inline-flex;align-items:center;gap:0.35rem;font-size:0.82rem;font-weight:600;}
+        .chart-panel{padding:1.5rem;}
+    </style>
+</head>
+<body>
+<nav class="navbar glass-panel">
+    <div class="nav-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span></div>
+    <div class="nav-links">
+        <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+        <button class="btn btn-outline btn-sm" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i></button>
+        <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="admin-nav-secondary">
+    <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+    <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+    <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+    <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+    <a href="/admin/performance" class="active"><i class="fa-solid fa-award"></i> Performance</a>
+    <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+    <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+    <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+</div>
+
+<main class="main-container fade-in">
+    <div class="flex-between mb-4">
+        <div>
+            <h2><i class="fa-solid fa-award" style="color:var(--accent-primary)"></i> Employee Performance</h2>
+            <p class="text-secondary" style="font-size:0.88rem;margin-top:0.25rem;">Comprehensive performance metrics, scores, and top performers.</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-panel" style="padding:1.25rem 1.5rem;margin-bottom:2rem;">
+        <div class="filter-bar">
+            <div class="form-group"><label>From Date</label><input type="date" id="f-from" class="form-control"></div>
+            <div class="form-group"><label>To Date</label><input type="date" id="f-to" class="form-control"></div>
+            <div class="form-group"><label>Department</label><input type="text" id="f-dept" class="form-control" placeholder="e.g. Editing"></div>
+            <div class="form-group"><label>Employee</label><select id="f-emp" class="form-control"><option value="">All Employees</option></select></div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Apply</button>
+                <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stat-cards-row mb-4">
+        <div class="stat-mini glass-panel"><div class="label">Total Employees</div><div class="value gradient-text" id="s-total">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Present Today</div><div class="value" style="color:var(--success)" id="s-present">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">On-Time Rate</div><div class="value" style="color:var(--info)" id="s-ontime">—%</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Best Performer</div><div class="value gradient-text" style="font-size:1rem;padding-top:0.5rem;" id="s-best">—</div></div>
+    </div>
+
+    <!-- Charts + Leaderboard -->
+    <div class="mid-grid">
+        <!-- Top Performers Leaderboard -->
+        <div class="glass-panel chart-panel">
+            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-trophy" style="color:#f59e0b"></i> Top Performers</h3>
+            <div class="leaderboard" id="leaderboard">
+                <p class="text-secondary" style="font-size:0.88rem;">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="glass-panel chart-panel">
+            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-chart-pie" style="color:var(--accent-primary)"></i> Today's Attendance</h3>
+            <canvas id="attChart" height="180"></canvas>
+        </div>
+    </div>
+
+    <div class="mid-grid">
+        <div class="glass-panel chart-panel">
+            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-chart-bar" style="color:var(--info)"></i> Tasks Completed per Employee</h3>
+            <canvas id="tasksChart" height="220"></canvas>
+        </div>
+        <!-- Needs Attention -->
+        <div class="glass-panel chart-panel">
+            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Needs Attention</h3>
+            <div id="attention-list" class="leaderboard"></div>
+        </div>
+    </div>
+
+    <!-- Per-Employee Table -->
+    <div class="glass-panel" style="padding:1.5rem;margin-top:2rem;">
+        <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-users" style="color:var(--accent-primary)"></i> All Employee Metrics</h3>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Assigned</th>
+                        <th>Completed</th>
+                        <th>Pending</th>
+                        <th>Attendance %</th>
+                        <th>On-Time %</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="perf-tbody">
+                    <tr><td colspan="9" class="text-center text-secondary" style="padding:2rem;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="/static/js/main.js"></script>
+<script>
+let attChart = null, tasksChart = null;
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (!me.ok) { location.href='/login'; return; }
+        const u = await me.json();
+        if (u.role !== 'Admin') { location.href='/employee/dashboard'; return; }
+        document.getElementById('nav-user-name').textContent = u.employee_name;
+    } catch { location.href='/login'; return; }
+
+    // Default date range (last 30 days)
+    const today = new Date();
+    const from  = new Date(); from.setDate(today.getDate() - 30);
+    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
+    document.getElementById('f-from').value = from.toISOString().split('T')[0];
+
+    await loadEmployees();
+    await loadData();
+});
+
+async function loadEmployees() {
+    const res = await fetch('/api/admin/employees');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('f-emp');
+    (d.employees||[]).forEach(e => { sel.innerHTML += `<option value="${e.id}">${e.employee_name}</option>`; });
+}
+
+async function loadData() {
+    const params = new URLSearchParams();
+    const from = document.getElementById('f-from').value;
+    const to   = document.getElementById('f-to').value;
+    const dept = document.getElementById('f-dept').value;
+    const emp  = document.getElementById('f-emp').value;
+    if (from) params.set('start_date', from);
+    if (to)   params.set('end_date', to);
+    if (dept) params.set('department', dept);
+    if (emp)  params.set('employee_id', emp);
+
+    const res = await fetch('/api/admin/performance-data?' + params);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Summary stats
+    document.getElementById('s-total').textContent   = d.summary.total_employees;
+    document.getElementById('s-present').textContent = d.summary.present_today;
+    document.getElementById('s-ontime').textContent  = d.summary.overall_on_time_rate + '%';
+    document.getElementById('s-best').textContent    = d.summary.best_performer || '—';
+
+    // Leaderboard (top 5 by score)
+    renderLeaderboard(d.employees.slice(0,5));
+
+    // Needs Attention
+    renderAttention(d.insights.needs_attention || []);
+
+    // Charts
+    renderAttChart(d.charts.attendance_pie);
+    renderTasksChart(d.charts.tasks_bar);
+
+    // Table
+    renderTable(d.employees);
+}
+
+function rankClass(i) { return i===0?'gold':i===1?'silver':i===2?'bronze':''; }
+function initials(name){ return (name||'?').split(' ').map(w=>w[0]).slice(0,2).join(''); }
+
+function scoreClass(score) {
+    if (score >= 85) return 'excellent';
+    if (score >= 70) return 'good';
+    if (score >= 50) return 'average';
+    return 'needs-attention';
+}
+
+function renderLeaderboard(emps) {
+    const el = document.getElementById('leaderboard');
+    if (!emps.length) { el.innerHTML='<p class="text-secondary" style="font-size:0.88rem;">No data</p>'; return; }
+    el.innerHTML = emps.map((e,i) => `
+        <div class="lb-row">
+            <div class="lb-rank ${rankClass(i)}">${i<3?['🥇','🥈','🥉'][i]:i+1}</div>
+            <div class="emp-avatar">${initials(e.name)}</div>
+            <div class="lb-info">
+                <strong>${e.name}</strong>
+                <small>${e.designation||e.department||'—'}</small>
+            </div>
+            <div style="text-align:right;">
+                <div class="score-chip score-${scoreClass(e.score)}">${e.score}</div>
+                <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:0.2rem;">${e.completed} tasks done</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderAttention(emps) {
+    const el = document.getElementById('attention-list');
+    if (!emps.length) {
+        el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:0.88rem;"><i class="fa-solid fa-face-smile" style="font-size:2rem;display:block;margin-bottom:0.5rem;opacity:0.4;"></i>All employees performing well!</div>`;
+        return;
+    }
+    el.innerHTML = emps.map(e => `
+        <div class="lb-row">
+            <div class="emp-avatar" style="background:linear-gradient(135deg,#dc2626,#ef4444)">${initials(e.name)}</div>
+            <div class="lb-info">
+                <strong>${e.name}</strong>
+                <small>${e.pending} pending · ${e.attendance_perc}% attendance</small>
+            </div>
+            <div class="score-chip score-attention">${e.score}</div>
+        </div>
+    `).join('');
+}
+
+function renderAttChart(pie) {
+    const ctx = document.getElementById('attChart').getContext('2d');
+    const isDark = document.documentElement.classList.contains('dark-theme');
+    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const textCol = isDark ? '#94a3b8' : '#475569';
+    if (attChart) { attChart.data.datasets[0].data = pie.data; attChart.update(); return; }
+    attChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: pie.labels,
+            datasets: [{ data: pie.data, backgroundColor: ['rgba(5,150,105,0.8)','rgba(217,119,6,0.8)','rgba(220,38,38,0.8)'], borderWidth: 0, borderRadius: 4 }]
+        },
+        options: {
+            responsive: true, cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom', labels: { color: textCol, padding: 16, usePointStyle: true } }
+            }
+        }
+    });
+}
+
+function renderTasksChart(bar) {
+    const ctx = document.getElementById('tasksChart').getContext('2d');
+    const isDark = document.documentElement.classList.contains('dark-theme');
+    const textCol = isDark ? '#94a3b8' : '#475569';
+    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    if (tasksChart) { tasksChart.data.labels=bar.labels; tasksChart.data.datasets[0].data=bar.data; tasksChart.update(); return; }
+    tasksChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: bar.labels,
+            datasets: [{ label: 'Tasks Completed', data: bar.data, backgroundColor: 'rgba(99,102,241,0.6)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 6 }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero:true, ticks:{color:textCol,stepSize:1}, grid:{color:gridCol} },
+                x: { ticks:{color:textCol,maxRotation:30}, grid:{display:false} }
+            },
+            plugins: { legend: { labels: { color:textCol } } }
+        }
+    });
+}
+
+function renderTable(emps) {
+    const tbody = document.getElementById('perf-tbody');
+    if (!emps.length) { tbody.innerHTML='<tr><td colspan="9" class="text-center text-secondary" style="padding:2rem;">No data found</td></tr>'; return; }
+    tbody.innerHTML = emps.map(e => {
+        const sc = scoreClass(e.score).replace('-','-');
+        return `<tr>
+            <td>
+                <div style="display:flex;align-items:center;gap:0.6rem;">
+                    <div class="emp-avatar" style="width:30px;height:30px;font-size:0.72rem;">${initials(e.name)}</div>
+                    <div>
+                        <strong style="font-size:0.88rem;">${e.name}</strong>
+                        <span style="display:block;font-size:0.72rem;color:var(--text-secondary);">${e.employee_code||'—'}</span>
+                    </div>
+                </div>
+            </td>
+            <td style="font-size:0.82rem;">${e.department||'—'}</td>
+            <td style="font-size:0.88rem;font-weight:600;">${e.assigned}</td>
+            <td style="font-size:0.88rem;color:var(--success);font-weight:600;">${e.completed}</td>
+            <td style="font-size:0.88rem;color:var(--warning);font-weight:600;">${e.pending}</td>
+            <td>
+                <div class="score-bar-wrap">
+                    <div class="score-bar"><div class="score-bar-fill" style="width:${e.attendance_perc}%;background:linear-gradient(90deg,#059669,#10b981);"></div></div>
+                    <span style="font-size:0.78rem;font-weight:600;width:38px;">${e.attendance_perc}%</span>
+                </div>
+            </td>
+            <td>
+                <div class="score-bar-wrap">
+                    <div class="score-bar"><div class="score-bar-fill" style="width:${e.on_time_perc}%;background:linear-gradient(90deg,#2563eb,#3b82f6);"></div></div>
+                    <span style="font-size:0.78rem;font-weight:600;width:38px;">${e.on_time_perc}%</span>
+                </div>
+            </td>
+            <td style="font-size:1rem;font-weight:700;">${e.score}</td>
+            <td><span class="badge badge-${sc}" style="font-size:0.72rem;">${e.status}</span></td>
+        </tr>`;
+    }).join('');
+}
+
+function clearFilters() {
+    const today = new Date();
+    const from  = new Date(); from.setDate(today.getDate()-30);
+    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
+    document.getElementById('f-from').value = from.toISOString().split('T')[0];
+    document.getElementById('f-dept').value = '';
+    document.getElementById('f-emp').value  = '';
+    loadData();
+}
+
+async function logout() { await fetch('/api/logout',{method:'POST'}); location.href='/login'; }
+</script>
+</body>
+</html>

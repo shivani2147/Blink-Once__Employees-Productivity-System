@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management | Blink Once Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary {
+            display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;
+            background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);
+            border-bottom:1px solid var(--border-color);margin-bottom:2rem;
+        }
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a{
+            padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;
+            color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;
+            transition:all 0.2s;text-decoration:none;
+        }
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+
+        .stat-cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;margin-bottom:2rem;}
+        @media(max-width:900px){.stat-cards-row{grid-template-columns:repeat(2,1fr);}}
+        .stat-mini{padding:1.25rem 1.5rem;border-radius:var(--border-radius);}
+        .stat-mini .label{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:0.5rem;}
+        .stat-mini .value{font-size:2rem;font-weight:700;letter-spacing:-0.5px;}
+
+        .filter-bar{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.5rem;}
+        .filter-bar .form-group{margin-bottom:0;flex:1;min-width:160px;}
+        .filter-bar .form-group label{font-size:0.78rem;}
+
+        .priority-high   {color:#dc2626;font-weight:600;}
+        .priority-medium {color:#d97706;font-weight:600;}
+        .priority-low    {color:#059669;font-weight:600;}
+
+        .badge-done        {background:rgba(5,150,105,0.1);  color:#059669;border:1px solid rgba(5,150,105,0.2);}
+        .badge-ongoing     {background:rgba(37,99,235,0.1);   color:#2563eb;border:1px solid rgba(37,99,235,0.2);}
+        .badge-hold        {background:rgba(217,119,6,0.1);   color:#d97706;border:1px solid rgba(217,119,6,0.2);}
+        .badge-not-started {background:rgba(100,116,139,0.1); color:#64748b;border:1px solid rgba(100,116,139,0.2);}
+        .badge-overdue     {background:rgba(220,38,38,0.12);  color:#b91c1c;border:1px solid rgba(220,38,38,0.25);}
+
+        .emp-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-gradient);color:white;font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:0.6rem;}
+        .emp-cell{display:flex;align-items:center;}
+        .row-overdue td{background:rgba(220,38,38,0.03)!important;}
+        .delete-confirm{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;}
+        .delete-confirm.active{display:flex;}
+        .delete-box{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--border-radius);padding:2rem;max-width:360px;width:90%;text-align:center;box-shadow:var(--shadow-soft);}
+        .delete-box h3{margin-bottom:0.75rem;}
+        .delete-box p{color:var(--text-secondary);font-size:0.88rem;margin-bottom:1.5rem;}
+        .delete-box .actions{display:flex;gap:0.75rem;justify-content:center;}
+    </style>
+</head>
+<body>
+<nav class="navbar glass-panel">
+    <div class="nav-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span></div>
+    <div class="nav-links">
+        <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+        <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="admin-nav-secondary">
+    <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+    <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+    <a href="/admin/tasks" class="active"><i class="fa-solid fa-list-check"></i> Tasks</a>
+    <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+    <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+    <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+    <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+    <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+</div>
+
+<main class="main-container fade-in">
+    <div class="flex-between mb-4">
+        <div>
+            <h2><i class="fa-solid fa-list-check" style="color:var(--accent-primary)"></i> Task Management</h2>
+            <p class="text-secondary" style="font-size:0.88rem;margin-top:0.25rem;">Assign, edit, track and delete employee productivity tasks.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('assignModal')">
+            <i class="fa-solid fa-plus"></i> Assign Task
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-cards-row">
+        <div class="stat-mini glass-panel"><div class="label">Total Tasks</div><div class="value gradient-text" id="s-total">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Completed</div><div class="value" style="color:var(--success)" id="s-done">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Pending</div><div class="value" style="color:var(--warning)" id="s-pending">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Overdue</div><div class="value" style="color:var(--danger)" id="s-overdue">—</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-panel" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+        <div class="filter-bar">
+            <div class="form-group"><label>Employee</label><select id="f-emp" class="form-control"><option value="">All Employees</option></select></div>
+            <div class="form-group"><label>Status</label>
+                <select id="f-status" class="form-control">
+                    <option value="">All</option>
+                    <option value="Not Started">Not Started</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Done">Done</option>
+                </select>
+            </div>
+            <div class="form-group"><label>From Date</label><input type="date" id="f-from" class="form-control"></div>
+            <div class="form-group"><label>To Date</label><input type="date" id="f-to" class="form-control"></div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Filter</button>
+                <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="glass-panel" style="padding:1.5rem;">
+        <div id="empty-state" class="text-center text-secondary" style="padding:3rem;display:none;">
+            <i class="fa-solid fa-inbox" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:1rem;"></i>
+            <p>No tasks found</p>
+        </div>
+        <div class="table-container" id="table-wrap" style="display:none;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Project / Client</th>
+                        <th>Editing Type</th>
+                        <th>Deadline</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Est. Hours</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="task-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Assign Task Modal -->
+<div id="assignModal" class="modal">
+    <div class="modal-content glass-panel">
+        <button class="modal-close" onclick="closeModal('assignModal')">&times;</button>
+        <h3 class="mb-3 gradient-text">Assign New Task</h3>
+        <form id="assign-form">
+            <div class="form-group">
+                <label>Assign To Employee</label>
+                <select name="user_id" id="assign-emp" class="form-control" required></select>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Client Name</label><input type="text" name="client_name" class="form-control" required></div>
+                <div class="form-group"><label>Date</label><input type="date" name="date" class="form-control" required></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Project Name</label><input type="text" name="project_name" class="form-control" required></div>
+                <div class="form-group"><label>Shoot Type</label>
+                    <select name="shoot_type" class="form-control" required>
+                        <option value="Wedding">Wedding</option><option value="Pre-Wedding">Pre-Wedding</option>
+                        <option value="Engagement">Engagement</option><option value="Corporate">Corporate</option>
+                        <option value="Birthday">Birthday</option><option value="Events">Events</option><option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Editing Type</label><input type="text" name="editing_type" class="form-control" placeholder="e.g. Traditional, Reels" required></div>
+            <div class="grid-2">
+                <div class="form-group"><label>Start Date</label><input type="date" name="start_date" class="form-control" required></div>
+                <div class="form-group"><label>End Date</label><input type="date" name="end_date" class="form-control" required></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Deadline Date</label><input type="date" name="deadline_date" class="form-control" required></div>
+                <div class="form-group"><label>Video Duration (hrs)</label><input type="number" step="0.1" name="video_duration" class="form-control" required></div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Cameras Used</label><input type="number" name="cameras_used" class="form-control" min="1" value="1" required></div>
+                <div class="form-group"><label>Priority</label>
+                    <select name="priority" class="form-control">
+                        <option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Status</label>
+                    <select name="status" class="form-control" required>
+                        <option value="Not Started">Not Started</option><option value="Ongoing">Ongoing</option>
+                        <option value="Hold">Hold</option><option value="Done">Done</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Uploaded to Drive?</label>
+                    <select name="uploaded_to_drive" class="form-control"><option value="No">No</option><option value="Yes">Yes</option></select>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Harddisk Number</label><input type="text" name="harddisk_number" class="form-control"></div>
+                <div class="form-group"><label>Harddisk Directory</label><input type="text" name="harddisk_directory" class="form-control"></div>
+            </div>
+            <div class="form-group"><label>Drive Link</label><input type="url" name="drive_link" class="form-control"></div>
+            <div class="form-group"><label>Comments</label><textarea name="comments" class="form-control" rows="2"></textarea></div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fa-solid fa-paper-plane"></i> Assign Task</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content glass-panel" style="max-width:440px;">
+        <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+        <h3 class="mb-3 gradient-text">Edit Task</h3>
+        <form id="edit-form">
+            <input type="hidden" id="edit-id">
+            <div class="grid-2">
+                <div class="form-group"><label>Status</label>
+                    <select id="edit-status" class="form-control">
+                        <option value="Not Started">Not Started</option><option value="Ongoing">Ongoing</option>
+                        <option value="Hold">Hold</option><option value="Done">Done</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Priority</label>
+                    <select id="edit-priority" class="form-control">
+                        <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>New Deadline Date</label><input type="date" id="edit-deadline" class="form-control"></div>
+            <div class="form-group"><label>Drive Link</label><input type="url" id="edit-drive" class="form-control"></div>
+            <div class="form-group"><label>Comments</label><textarea id="edit-comments" class="form-control" rows="3"></textarea></div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirm -->
+<div class="delete-confirm" id="deleteConfirm">
+    <div class="delete-box glass-panel">
+        <h3>Delete Task?</h3>
+        <p>This action cannot be undone. The task will be permanently removed.</p>
+        <div class="actions">
+            <button class="btn btn-outline" onclick="closeDelete()">Cancel</button>
+            <button class="btn btn-danger" id="confirm-delete-btn" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;box-shadow:0 4px 12px rgba(220,38,38,0.2);">
+                <i class="fa-solid fa-trash"></i> Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script>
+let employees = [];
+let pendingDeleteId = null;
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (!me.ok) { location.href='/login'; return; }
+        const u = await me.json();
+        if (u.role !== 'Admin') { location.href='/employee/dashboard'; return; }
+        document.getElementById('nav-user-name').textContent = u.employee_name;
+    } catch { location.href='/login'; return; }
+    await loadEmployees();
+    await loadData();
+});
+
+async function loadEmployees() {
+    const res = await fetch('/api/admin/employees');
+    if (!res.ok) return;
+    const d = await res.json();
+    employees = d.employees || [];
+    const sel  = document.getElementById('f-emp');
+    const sel2 = document.getElementById('assign-emp');
+    employees.forEach(e => {
+        sel.innerHTML  += `<option value="${e.id}">${e.employee_name}</option>`;
+        sel2.innerHTML += `<option value="${e.id}">${e.employee_name} (${e.employee_code || '—'})</option>`;
+    });
+}
+
+async function loadData() {
+    const params = new URLSearchParams();
+    const emp  = document.getElementById('f-emp').value;
+    const sta  = document.getElementById('f-status').value;
+    const from = document.getElementById('f-from').value;
+    const to   = document.getElementById('f-to').value;
+    if (emp)  params.set('employee_id', emp);
+    if (sta)  params.set('status_filter', sta);
+    if (from) params.set('date_from', from);
+    if (to)   params.set('date_to', to);
+
+    const res = await fetch('/api/admin/tasks?' + params);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    document.getElementById('s-total').textContent   = d.summary.total;
+    document.getElementById('s-done').textContent    = d.summary.completed;
+    document.getElementById('s-pending').textContent = d.summary.pending;
+    document.getElementById('s-overdue').textContent = d.summary.overdue;
+
+    const empty = document.getElementById('empty-state');
+    const wrap  = document.getElementById('table-wrap');
+    const tbody = document.getElementById('task-tbody');
+
+    if (!d.records.length) { empty.style.display='block'; wrap.style.display='none'; return; }
+    empty.style.display = 'none'; wrap.style.display = 'block';
+
+    tbody.innerHTML = d.records.map(r => {
+        const sc = (r.status||'').toLowerCase().replace(/ /g,'-');
+        const pc = 'priority-' + (r.priority||'medium').toLowerCase();
+        const initials = (r.employee_name||'?').split(' ').map(w=>w[0]).slice(0,2).join('');
+        const daysChip = r.overdue
+            ? `<span class="badge badge-overdue" style="font-size:0.68rem;margin-left:0.4rem;">Overdue</span>` : '';
+        return `<tr class="${r.overdue?'row-overdue':''}">
+            <td><div class="emp-cell"><div class="emp-avatar">${initials}</div><strong style="font-size:0.88rem;">${r.employee_name}</strong></div></td>
+            <td>
+                <strong style="font-size:0.88rem;">${r.project_name}</strong>
+                <span style="display:block;font-size:0.75rem;color:var(--text-secondary);">${r.client_name}</span>
+            </td>
+            <td style="font-size:0.85rem;">${r.editing_type}</td>
+            <td style="font-size:0.85rem;">${r.deadline_date||'—'}${daysChip}</td>
+            <td class="${pc}" style="font-size:0.85rem;"><i class="fa-solid fa-circle" style="font-size:0.55rem;margin-right:0.3rem;"></i>${r.priority}</td>
+            <td><span class="badge badge-${sc}" style="font-size:0.72rem;">${r.status}</span></td>
+            <td style="font-size:0.85rem;">${Math.round(r.expected_workload_hours||0)} hrs</td>
+            <td style="display:flex;gap:0.4rem;">
+                <button class="btn btn-outline btn-sm" onclick='openEdit(${JSON.stringify(r)})'><i class="fa-solid fa-pen"></i></button>
+                <button class="btn btn-sm" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.2);" onclick="confirmDelete(${r.id})"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function clearFilters() {
+    document.getElementById('f-emp').value='';document.getElementById('f-status').value='';
+    document.getElementById('f-from').value='';document.getElementById('f-to').value='';
+    loadData();
+}
+
+document.getElementById('assign-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    data.user_id = parseInt(data.user_id);
+    data.video_duration = parseFloat(data.video_duration);
+    data.cameras_used = parseInt(data.cameras_used);
+    const btn = e.target.querySelector('[type=submit]'); btn.disabled=true;
+    const res = await fetch('/api/admin/tasks/assign', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    btn.disabled=false;
+    if (res.ok) { closeModal('assignModal'); e.target.reset(); loadData(); }
+    else { const err=await res.json(); alert(err.detail||'Error assigning task'); }
+});
+
+function openEdit(r) {
+    document.getElementById('edit-id').value       = r.id;
+    document.getElementById('edit-status').value   = r.status;
+    document.getElementById('edit-priority').value = r.priority;
+    document.getElementById('edit-deadline').value = r.deadline_date||'';
+    document.getElementById('edit-drive').value    = r.drive_link||'';
+    document.getElementById('edit-comments').value = r.comments||'';
+    openModal('editModal');
+}
+
+document.getElementById('edit-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const body = {
+        status: document.getElementById('edit-status').value,
+        priority: document.getElementById('edit-priority').value,
+        deadline_date: document.getElementById('edit-deadline').value||null,
+        drive_link: document.getElementById('edit-drive').value,
+        comments: document.getElementById('edit-comments').value,
+    };
+    const res = await fetch(`/api/admin/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (res.ok) { closeModal('editModal'); loadData(); }
+});
+
+function confirmDelete(id) { pendingDeleteId=id; document.getElementById('deleteConfirm').classList.add('active'); }
+function closeDelete() { pendingDeleteId=null; document.getElementById('deleteConfirm').classList.remove('active'); }
+document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    await fetch(`/api/admin/tasks/${pendingDeleteId}`,{method:'DELETE'});
+    closeDelete(); loadData();
+});
+
+async function logout() { await fetch('/api/logout',{method:'POST'}); location.href='/login'; }
+</script>
+</body>
+</html>

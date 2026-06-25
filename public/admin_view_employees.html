@@ -5,7 +5,14 @@
     <title>View Employee Details - Admin</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/js/theme.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a{padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;text-decoration:none;}
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+
         .search-box { margin-bottom: 1.5rem; }
         .employee-table { width: 100%; border-collapse: collapse; background: #fff; }
         .employee-table thead { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
@@ -32,11 +39,36 @@
     </style>
 </head>
 <body>
+    <nav class="navbar glass-panel">
+        <div class="nav-brand">
+            <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
+        </div>
+        <div class="nav-links">
+            <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="admin-nav-secondary">
+        <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+        <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+        <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+        <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+        <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+        <a href="/admin/view-employees" class="active"><i class="fa-solid fa-users"></i> Employees</a>
+        <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+        <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+    </div>
+
     <main class="main-container">
         <div class="glass-panel" style="padding: 1.5rem; margin: 1.5rem auto; max-width: 1200px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h2>View Employee Details</h2>
-                <a href="/admin/dashboard" class="btn btn-outline">← Back to Dashboard</a>
+                <div>
+                    <a href="/admin/performance" class="btn btn-primary" style="margin-right: 0.5rem;"><i class="fa-solid fa-award"></i> Performance Dashboard</a>
+                    <a href="/admin/dashboard" class="btn btn-outline">← Back to Dashboard</a>
+                </div>
             </div>
 
             <div class="search-box">
@@ -199,8 +231,8 @@
                             <div class="detail-item-value">${emp.salary_type || 'N/A'}</div>
                         </div>
                         <div class="detail-item">
-                            <div class="detail-item-label">Salary / Rate</div>
-                            <div class="detail-item-value">${emp.salary_value || 'N/A'}</div>
+                            <div class="detail-item-label">Salary Amount</div>
+                            <div class="detail-item-value">₹${emp.salary_amount || 'N/A'}</div>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management | Blink Once Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary {
+            display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;
+            background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);
+            border-bottom:1px solid var(--border-color);margin-bottom:2rem;
+        }
+        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
+        .admin-nav-secondary a {
+            padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;
+            color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;
+            transition:all 0.2s;text-decoration:none;
+        }
+        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
+        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+
+        .stat-cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;margin-bottom:2rem;}
+        @media(max-width:900px){.stat-cards-row{grid-template-columns:repeat(2,1fr);}}
+        .stat-mini{padding:1.25rem 1.5rem;border-radius:var(--border-radius);}
+        .stat-mini .label{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:0.5rem;}
+        .stat-mini .value{font-size:2rem;font-weight:700;letter-spacing:-0.5px;}
+
+        .filter-bar{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.5rem;}
+        .filter-bar .form-group{margin-bottom:0;flex:1;min-width:160px;}
+        .filter-bar .form-group label{font-size:0.78rem;}
+
+        .badge-approved{background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.2);}
+        .badge-rejected{background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.2);}
+        .badge-pending {background:rgba(217,119,6,0.1); color:#d97706;border:1px solid rgba(217,119,6,0.2);}
+
+        .emp-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-gradient);color:white;font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:0.6rem;}
+        .emp-cell{display:flex;align-items:center;}
+
+        .action-btns{display:flex;gap:0.4rem;}
+        .btn-approve{background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.25);font-size:0.78rem;padding:0.35rem 0.75rem;border-radius:6px;cursor:pointer;font-weight:600;transition:all 0.2s;}
+        .btn-approve:hover{background:#059669;color:white;}
+        .btn-reject {background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.78rem;padding:0.35rem 0.75rem;border-radius:6px;cursor:pointer;font-weight:600;transition:all 0.2s;}
+        .btn-reject:hover{background:#dc2626;color:white;}
+
+        .duration-pill{background:rgba(79,70,229,0.08);color:var(--accent-primary);border:1px solid rgba(79,70,229,0.15);padding:0.2rem 0.6rem;border-radius:20px;font-size:0.75rem;font-weight:600;}
+    </style>
+</head>
+<body>
+<nav class="navbar glass-panel">
+    <div class="nav-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span></div>
+    <div class="nav-links">
+        <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+        <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+    </div>
+</nav>
+
+<div class="admin-nav-secondary">
+    <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+    <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+    <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+    <a href="/admin/leaves" class="active"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+    <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+    <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+    <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+    <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+</div>
+
+<main class="main-container fade-in">
+    <div class="flex-between mb-4">
+        <div>
+            <h2><i class="fa-solid fa-umbrella-beach" style="color:#059669"></i> Leave Management</h2>
+            <p class="text-secondary" style="font-size:0.88rem;margin-top:0.25rem;">Review, approve, or reject employee leave requests.</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-cards-row">
+        <div class="stat-mini glass-panel"><div class="label">Total Requests</div><div class="value gradient-text" id="s-total">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Pending</div><div class="value" style="color:var(--warning)" id="s-pending">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Approved</div><div class="value" style="color:var(--success)" id="s-approved">—</div></div>
+        <div class="stat-mini glass-panel"><div class="label">Rejected</div><div class="value" style="color:var(--danger)" id="s-rejected">—</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass-panel" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+        <div class="filter-bar">
+            <div class="form-group"><label>Employee</label><select id="f-emp" class="form-control"><option value="">All Employees</option></select></div>
+            <div class="form-group"><label>Status</label>
+                <select id="f-status" class="form-control">
+                    <option value="">All</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Filter</button>
+                <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Requests (highlighted section) -->
+    <div id="pending-section" class="glass-panel" style="padding:1.5rem;margin-bottom:1.5rem;border:1px solid rgba(217,119,6,0.2);display:none;">
+        <div class="flex-between mb-3">
+            <h3 style="margin-bottom:0;font-size:1rem;"><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Pending Requests <span id="pending-badge" class="badge badge-pending" style="font-size:0.72rem;margin-left:0.5rem;">0</span></h3>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead><tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Actions</th></tr></thead>
+                <tbody id="pending-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- All Leaves Table -->
+    <div class="glass-panel" style="padding:1.5rem;">
+        <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-history" style="color:var(--accent-primary)"></i> Leave History</h3>
+        <div id="empty-state" class="text-center text-secondary" style="padding:3rem;display:none;">
+            <i class="fa-solid fa-calendar-xmark" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:1rem;"></i>
+            <p>No leave records found</p>
+        </div>
+        <div class="table-container" id="table-wrap" style="display:none;">
+            <table class="table">
+                <thead>
+                    <tr><th>Employee</th><th>Leave Type</th><th>From</th><th>To</th><th>Duration</th><th>Reason</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="leave-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="/static/js/main.js"></script>
+<script>
+let allLeaves = [];
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const me = await fetch('/api/auth/me');
+        if (!me.ok) { location.href='/login'; return; }
+        const u = await me.json();
+        if (u.role !== 'Admin') { location.href='/employee/dashboard'; return; }
+        document.getElementById('nav-user-name').textContent = u.employee_name;
+    } catch { location.href='/login'; return; }
+    await loadEmployees();
+    await loadData();
+});
+
+async function loadEmployees() {
+    const res = await fetch('/api/admin/employees');
+    if (!res.ok) return;
+    const d = await res.json();
+    const sel = document.getElementById('f-emp');
+    (d.employees || []).forEach(e => {
+        sel.innerHTML += `<option value="${e.id}">${e.employee_name}</option>`;
+    });
+}
+
+async function loadData() {
+    const params = new URLSearchParams();
+    const emp = document.getElementById('f-emp').value;
+    const sta = document.getElementById('f-status').value;
+    if (emp) params.set('employee_id', emp);
+    if (sta) params.set('status_filter', sta);
+
+    const res = await fetch('/api/admin/leaves?' + params);
+    if (!res.ok) return;
+    const d = await res.json();
+    allLeaves = d.leaves || [];
+
+    document.getElementById('s-total').textContent    = d.summary.total;
+    document.getElementById('s-pending').textContent  = d.summary.pending;
+    document.getElementById('s-approved').textContent = d.summary.approved;
+    document.getElementById('s-rejected').textContent = d.summary.rejected;
+
+    // Pending section
+    const pending = allLeaves.filter(l => l.status === 'Pending');
+    const pSec = document.getElementById('pending-section');
+    const pBadge = document.getElementById('pending-badge');
+    if (pending.length) {
+        pSec.style.display = 'block';
+        pBadge.textContent = pending.length;
+        document.getElementById('pending-tbody').innerHTML = pending.map(l => leaveRow(l, true)).join('');
+    } else {
+        pSec.style.display = 'none';
+    }
+
+    // All leaves table
+    const empty = document.getElementById('empty-state');
+    const wrap  = document.getElementById('table-wrap');
+    if (!allLeaves.length) { empty.style.display='block'; wrap.style.display='none'; return; }
+    empty.style.display = 'none'; wrap.style.display = 'block';
+    document.getElementById('leave-tbody').innerHTML = allLeaves.map(l => leaveRow(l, false)).join('');
+}
+
+function leaveRow(l, compact) {
+    const sc = l.status.toLowerCase();
+    const initials = l.employee_name.split(' ').map(w=>w[0]).slice(0,2).join('');
+    const actions = l.status === 'Pending'
+        ? `<div class="action-btns">
+                <button class="btn-approve" onclick="doAction(${l.id},'approve')"><i class="fa-solid fa-check"></i> Approve</button>
+                <button class="btn-reject"  onclick="doAction(${l.id},'reject')"><i class="fa-solid fa-xmark"></i> Reject</button>
+           </div>`
+        : `<span style="font-size:0.8rem;color:var(--text-secondary);">Resolved</span>`;
+
+    const cols = compact
+        ? `<td><div class="emp-cell"><div class="emp-avatar">${initials}</div><div><strong style="font-size:0.88rem;">${l.employee_name}</strong><span style="display:block;font-size:0.72rem;color:var(--text-secondary);">${l.employee_code}</span></div></div></td>
+           <td style="font-size:0.85rem;">${l.leave_type}</td>
+           <td style="font-size:0.85rem;">${l.start_date}</td>
+           <td style="font-size:0.85rem;">${l.end_date}</td>
+           <td><span class="duration-pill">${l.duration_days}d</span></td>
+           <td style="max-width:200px;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.reason}">${l.reason}</td>
+           <td>${actions}</td>`
+        : `<td><div class="emp-cell"><div class="emp-avatar">${initials}</div><div><strong style="font-size:0.88rem;">${l.employee_name}</strong><span style="display:block;font-size:0.72rem;color:var(--text-secondary);">${l.employee_code}</span></div></div></td>
+           <td style="font-size:0.85rem;">${l.leave_type}</td>
+           <td style="font-size:0.85rem;">${l.start_date}</td>
+           <td style="font-size:0.85rem;">${l.end_date}</td>
+           <td><span class="duration-pill">${l.duration_days}d</span></td>
+           <td style="max-width:180px;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.reason}">${l.reason}</td>
+           <td><span class="badge badge-${sc}">${l.status}</span></td>
+           <td>${actions}</td>`;
+    return `<tr>${cols}</tr>`;
+}
+
+async function doAction(id, action) {
+    const res = await fetch(`/api/admin/leaves/${id}/${action}`, { method: 'PUT' });
+    if (res.ok) loadData();
+    else alert('Action failed');
+}
+
+function clearFilters() {
+    document.getElementById('f-emp').value = '';
+    document.getElementById('f-status').value = '';
+    loadData();
+}
+
+async function logout() { await fetch('/api/logout',{method:'POST'}); location.href='/login'; }
+</script>
+</body>
+</html>

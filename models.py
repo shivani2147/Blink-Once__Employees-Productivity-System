@@ -27,6 +27,7 @@ class User(Base):
     department = Column(String(200))
     salary_type = Column(String(50))
     salary_value = Column(String(100))
+    salary_amount = Column(Float)
     experience = Column(String(50))
     skills = Column(Text)
     software_knowledge = Column(Text)
@@ -37,6 +38,8 @@ class User(Base):
     certificates_path = Column(String(500))
 
     records = relationship("ProductivityRecord", back_populates="user")
+    attendance_records = relationship("Attendance", back_populates="user")
+    leave_requests = relationship("LeaveRequest", back_populates="user")
 
 class ProductivityRecord(Base):
     __tablename__ = "productivity_records"
@@ -57,7 +60,9 @@ class ProductivityRecord(Base):
     editing_type = Column(String(200))
     
     video_duration = Column(Float) # in hours or minutes
-    status = Column(String(50)) # Ongoing, Hold, Not Started, Done
+    status = Column(String(50), default="Pending") # Pending, In Progress, Completed
+    priority = Column(String(50), default="Medium") # Low, Medium, High
+    task_description = Column(Text)
     
     harddisk_number = Column(String(100))
     harddisk_directory = Column(String(255))
@@ -74,3 +79,28 @@ class ProductivityRecord(Base):
     estimated_completion_time = Column(String(100)) # e.g. '1 day 2 hours'
 
     user = relationship("User", back_populates="records")
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    date = Column(Date, index=True)
+    status = Column(String(50)) # Present, Absent, Late
+    time_in = Column(String(50), nullable=True) # E.g., '09:00 AM'
+    time_out = Column(String(50), nullable=True) # E.g., '06:00 PM'
+
+    user = relationship("User", back_populates="attendance_records")
+
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    start_date = Column(Date)
+    end_date = Column(Date)
+    leave_type = Column(String(100)) # e.g. Sick Leave, Casual Leave
+    reason = Column(Text)
+    status = Column(String(50), default="Pending") # Pending, Approved, Rejected
+
+    user = relationship("User", back_populates="leave_requests")
