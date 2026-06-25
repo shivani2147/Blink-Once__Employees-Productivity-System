@@ -4,13 +4,12 @@ This migration script ensures the users table has all columns needed for employe
 """
 
 import pyodbc
+from sqlalchemy import create_engine
 from config import DATABASE_URL
 
-# Parse connection string
-conn_str = DATABASE_URL.replace('mssql+pyodbc://', '')
-
 try:
-    conn = pyodbc.connect(conn_str)
+    engine = create_engine(DATABASE_URL)
+    conn = engine.raw_connection()
     cursor = conn.cursor()
     
     print("✓ Connected to database")

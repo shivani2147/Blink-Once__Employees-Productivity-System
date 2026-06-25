@@ -1,18 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 import urllib
-from config import SERVER, DATABASE
+from config import DATABASE_URL
 
-# Connection string for pyodbc
-params = urllib.parse.quote_plus(
-    f"Driver={{ODBC Driver 17 for SQL Server}};"
-    f"Server={SERVER};"
-    f"Database={DATABASE};"
-    f"Trusted_Connection=yes;"
-    f"TrustServerCertificate=yes;"
-)
-
-SQLALCHEMY_DATABASE_URL = f"mssql+pyodbc:///?odbc_connect={params}"
+# Optional: Ensure compatibility if parameters are missing from URL, though the env var provides the full URL
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
 
 # Create SQLAlchemy engine
 engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=False)
