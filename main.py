@@ -56,7 +56,7 @@ app.include_router(auth_router.router, prefix="/api")
 app.include_router(employee_router.router, prefix="/api/employee")
 app.include_router(admin_router.router, prefix="/api/admin")
 
-# Static Page Routes
+# ── Root redirect ──────────────────────────────────────────────────────────────
 @app.get("/")
 async def root(request: Request, user: User = Depends(get_current_user)):
     if not user:
@@ -65,6 +65,7 @@ async def root(request: Request, user: User = Depends(get_current_user)):
         return RedirectResponse(url="/admin/dashboard")
     return RedirectResponse(url="/employee/dashboard")
 
+# ── Auth Pages ────────────────────────────────────────────────────────────────
 @app.get("/login")
 async def login_page():
     return FileResponse("public/login.html")
@@ -73,14 +74,33 @@ async def login_page():
 async def register_page():
     return FileResponse("public/register.html")
 
+# ── Employee Pages ─────────────────────────────────────────────────────────────
 @app.get("/employee/dashboard")
 async def employee_dashboard_page():
-    return FileResponse("public/employee_dashboard.html")
+    return FileResponse("public/emp_dashboard.html")
+
+@app.get("/employee/attendance")
+async def employee_attendance_page():
+    return FileResponse("public/emp_attendance.html")
+
+@app.get("/employee/productivity")
+async def employee_productivity_page():
+    return FileResponse("public/emp_productivity.html")
+
+@app.get("/employee/leaves")
+async def employee_leaves_page():
+    return FileResponse("public/emp_leaves.html")
 
 @app.get("/employee/profile")
 async def employee_profile_page():
+    return FileResponse("public/emp_profile.html")
+
+# Legacy redirect — keep old profile URL working
+@app.get("/employee/profile-old")
+async def employee_profile_old():
     return FileResponse("public/employee_profile.html")
 
+# ── Admin Pages ───────────────────────────────────────────────────────────────
 @app.get("/admin/dashboard")
 async def admin_dashboard_page():
     return FileResponse("public/admin_dashboard.html")
@@ -88,7 +108,6 @@ async def admin_dashboard_page():
 @app.get("/admin/settings")
 async def admin_settings_page():
     return FileResponse("public/admin_settings.html")
-
 
 @app.get("/admin/add-employee")
 async def admin_add_employee_page():
@@ -113,3 +132,17 @@ async def admin_tasks_page():
 @app.get("/admin/leaves")
 async def admin_leaves_page():
     return FileResponse("public/admin_leaves.html")
+
+@app.get("/admin/holidays")
+async def admin_holidays_page():
+    return FileResponse("public/admin_holidays.html")
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8001,
+        reload=True
+    )

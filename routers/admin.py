@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
-from models import User, ProductivityRecord, Attendance, LeaveRequest
+from models import User, ProductivityRecord, Attendance, LeaveRequest, LeaveBalance, Holiday, OfficeLocation, ProductivityEditHistory
+import json
 from auth import get_current_admin, get_password_hash
 from fastapi import UploadFile, File, Form
 import shutil, os, io, csv
@@ -642,21 +643,22 @@ async def export_attendance_csv(
 class AdminTaskCreate(BaseModel):
     user_id: int
     client_name: str
-    date: datetime.date
-    project_name: str
-    start_date: datetime.date
-    end_date: datetime.date
+    task_description: str
     deadline_date: datetime.date
-    editing_type: str
-    video_duration: float
-    status: str
     priority: str = "Medium"
-    task_description: str = ""
+    # Optional fields with defaults
+    date: datetime.date = None
+    project_name: str = ""
+    start_date: datetime.date = None
+    end_date: datetime.date = None
+    editing_type: str = ""
+    video_duration: float = 0.0
+    status: str = "Not Started"
     harddisk_number: str = ""
     harddisk_directory: str = ""
     uploaded_to_drive: str = "No"
     drive_link: str = ""
-    shoot_type: str
+    shoot_type: str = ""
     cameras_used: int = 1
     comments: str = ""
 
@@ -742,10 +744,10 @@ async def assign_task(
         employee_name=emp.employee_name,
         designation=emp.designation,
         client_name=req.client_name,
-        date=req.date,
+        date=req.date or datetime.date.today(),
         project_name=req.project_name,
-        start_date=req.start_date,
-        end_date=req.end_date,
+        start_date=req.start_date or datetime.date.today(),
+        end_date=req.end_date or datetime.date.today(),
         deadline_date=req.deadline_date,
         editing_type=req.editing_type,
         video_duration=req.video_duration,
@@ -877,3 +879,262 @@ async def reject_leave(
     leave.status = "Rejected"
     db.commit()
     return {"message": "Leave rejected"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OFFICE LOCATION CONFIG
+# ══════════════════════════════════════════════════════════════════════════════
+
+class OfficeLocationUpdate(BaseModel):
+    name: str = "Main Office"
+    latitude: float
+    longitude: float
+    radius_meters: int = 100
+
+@router.get("/office-location")
+async def admin_get_office_location(
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    office = db.query(OfficeLocation).filter(OfficeLocation.is_active == True).first()
+    if not office:
+        return {"id": None, "name": "Not configured", "latitude": None, "longitude": None, "radius_meters": 100}
+    return {
+        "id": office.id,
+        "name": office.name,
+        "latitude": office.latitude,
+        "longitude": office.longitude,
+        "radius_meters": office.radius_meters,
+    }
+
+@router.put("/office-location")
+async def admin_update_office_location(
+    req: OfficeLocationUpdate,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    office = db.query(OfficeLocation).filter(OfficeLocation.is_active == True).first()
+    if office:
+        office.name = req.name
+        office.latitude = req.latitude
+        office.longitude = req.longitude
+        office.radius_meters = req.radius_meters
+    else:
+        office = OfficeLocation(
+            name=req.name,
+            latitude=req.latitude,
+            longitude=req.longitude,
+            radius_meters=req.radius_meters,
+            is_active=True
+        )
+        db.add(office)
+    db.commit()
+    return {"message": "Office location updated successfully"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HOLIDAY MANAGEMENT
+# ══════════════════════════════════════════════════════════════════════════════
+
+class HolidayCreate(BaseModel):
+    name: str
+    date: datetime.date
+    day: Optional[str] = None
+    description: Optional[str] = None
+    holiday_type: str = "National"
+
+class HolidayUpdate(BaseModel):
+    name: str
+    date: datetime.date
+    day: Optional[str] = None
+    description: Optional[str] = None
+    holiday_type: str = "National"
+    is_active: bool = True
+
+@router.get("/holidays")
+async def admin_get_holidays(
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    holiday_type: str = ""
+):
+    query = db.query(Holiday)
+    if holiday_type:
+        query = query.filter(Holiday.holiday_type == holiday_type)
+    holidays = query.order_by(Holiday.date).all()
+    result = []
+    for h in holidays:
+        result.append({
+            "id": h.id,
+            "name": h.name,
+            "date": h.date.isoformat(),
+            "day": h.day or h.date.strftime("%A"),
+            "description": h.description or "",
+            "holiday_type": h.holiday_type,
+            "is_active": h.is_active,
+        })
+    return {"holidays": result, "total": len(result)}
+
+@router.post("/holidays")
+async def admin_create_holiday(
+    req: HolidayCreate,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    import calendar
+    day_name = req.day or req.date.strftime("%A")
+    holiday = Holiday(
+        name=req.name,
+        date=req.date,
+        day=day_name,
+        description=req.description,
+        holiday_type=req.holiday_type,
+        is_active=True
+    )
+    db.add(holiday)
+    db.commit()
+    return {"message": "Holiday created successfully", "id": holiday.id}
+
+@router.put("/holidays/{holiday_id}")
+async def admin_update_holiday(
+    holiday_id: int,
+    req: HolidayUpdate,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    holiday = db.query(Holiday).filter(Holiday.id == holiday_id).first()
+    if not holiday:
+        raise HTTPException(status_code=404, detail="Holiday not found")
+    holiday.name = req.name
+    holiday.date = req.date
+    holiday.day = req.day or req.date.strftime("%A")
+    holiday.description = req.description
+    holiday.holiday_type = req.holiday_type
+    holiday.is_active = req.is_active
+    db.commit()
+    return {"message": "Holiday updated"}
+
+@router.delete("/holidays/{holiday_id}")
+async def admin_delete_holiday(
+    holiday_id: int,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    holiday = db.query(Holiday).filter(Holiday.id == holiday_id).first()
+    if not holiday:
+        raise HTTPException(status_code=404, detail="Holiday not found")
+    db.delete(holiday)
+    db.commit()
+    return {"message": "Holiday deleted"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LEAVE BALANCE MANAGEMENT
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/leave-balances")
+async def admin_get_leave_balances(
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    employees = db.query(User).filter(User.role == "Employee").all()
+    result = []
+    for emp in employees:
+        balance = db.query(LeaveBalance).filter(LeaveBalance.user_id == emp.id).first()
+        result.append({
+            "user_id": emp.id,
+            "employee_name": emp.employee_name,
+            "employee_code": emp.employee_code or "-",
+            "department": emp.department or "-",
+            "total_leaves": balance.total_leaves if balance else 12,
+            "used_leaves": balance.used_leaves if balance else 0,
+            "remaining_leaves": balance.remaining_leaves if balance else 12,
+            "year": balance.year if balance else datetime.date.today().year,
+        })
+    return {"balances": result}
+
+class LeaveBalanceUpdate(BaseModel):
+    total_leaves: int
+    used_leaves: int
+
+@router.put("/leave-balances/{user_id}")
+async def admin_update_leave_balance(
+    user_id: int,
+    req: LeaveBalanceUpdate,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    balance = db.query(LeaveBalance).filter(LeaveBalance.user_id == user_id).first()
+    if not balance:
+        balance = LeaveBalance(
+            user_id=user_id,
+            year=datetime.date.today().year,
+            total_leaves=req.total_leaves,
+            used_leaves=req.used_leaves,
+            remaining_leaves=req.total_leaves - req.used_leaves
+        )
+        db.add(balance)
+    else:
+        balance.total_leaves = req.total_leaves
+        balance.used_leaves = req.used_leaves
+        balance.remaining_leaves = req.total_leaves - req.used_leaves
+    db.commit()
+    return {"message": "Leave balance updated"}
+
+# Also update leave balance when admin approves/rejects — patch existing approve/reject handlers
+@router.put("/leaves/{leave_id}/approve-v2")
+async def approve_leave_v2(
+    leave_id: int,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Approve leave and deduct from leave balance."""
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    if leave.status == "Approved":
+        return {"message": "Already approved"}
+    leave.status = "Approved"
+    leave.approved_by = user.id
+    # Deduct from balance if Annual leave
+    if leave.leave_type == "Annual" and leave.days_count:
+        balance = db.query(LeaveBalance).filter(LeaveBalance.user_id == leave.user_id).first()
+        if balance:
+            balance.used_leaves = min(balance.total_leaves, balance.used_leaves + leave.days_count)
+            balance.remaining_leaves = max(0, balance.total_leaves - balance.used_leaves)
+    db.commit()
+    return {"message": "Leave approved and balance updated"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRODUCTIVITY EDIT HISTORY (Admin View)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/productivity/edit-history")
+async def admin_get_edit_history(
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    employee_id: str = "",
+    record_id: str = ""
+):
+    query = db.query(ProductivityEditHistory)
+    if employee_id:
+        query = query.filter(ProductivityEditHistory.user_id == int(employee_id))
+    if record_id:
+        query = query.filter(ProductivityEditHistory.record_id == int(record_id))
+    history = query.order_by(ProductivityEditHistory.edited_at.desc()).all()
+    emp_map = {u.id: u for u in db.query(User).all()}
+    result = []
+    for h in history:
+        emp = emp_map.get(h.user_id)
+        rec = db.query(ProductivityRecord).filter(ProductivityRecord.id == h.record_id).first()
+        result.append({
+            "id": h.id,
+            "record_id": h.record_id,
+            "project_name": rec.project_name if rec else "—",
+            "employee_name": emp.employee_name if emp else "Unknown",
+            "employee_code": emp.employee_code if emp else "-",
+            "edited_at": h.edited_at.isoformat() if h.edited_at else None,
+            "old_values": json.loads(h.old_values) if h.old_values else {},
+            "new_values": json.loads(h.new_values) if h.new_values else {},
+        })
+    return {"history": result, "total": len(result)}

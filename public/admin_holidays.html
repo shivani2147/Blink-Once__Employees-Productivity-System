@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holiday Management | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        .admin-nav-secondary { display:flex; gap:0.5rem; flex-wrap:wrap; padding:0.75rem 2.5rem; background:rgba(255,255,255,0.5); backdrop-filter:blur(10px); border-bottom:1px solid var(--border-color); margin-bottom:2rem; }
+        .dark-theme .admin-nav-secondary { background:rgba(17,24,39,0.4); }
+        .admin-nav-secondary a { padding:0.4rem 0.9rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); display:flex; align-items:center; gap:0.4rem; transition:all 0.2s; text-decoration:none; }
+        .admin-nav-secondary a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .admin-nav-secondary a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); }
+
+        .holiday-row td { vertical-align:middle; }
+        .ht-national { background:rgba(79,70,229,0.1); color:var(--accent-primary); }
+        .ht-company  { background:rgba(5,150,105,0.1); color:#059669; }
+        .ht-optional { background:rgba(217,119,6,0.1); color:#d97706; }
+        .badge-type { font-size:0.72rem; padding:0.2rem 0.6rem; border-radius:50px; font-weight:600; }
+        .filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .filter-chip { padding:0.35rem 0.9rem; border-radius:50px; font-size:0.8rem; font-weight:600; cursor:pointer; border:1px solid var(--border-color); background:none; color:var(--text-secondary); transition:all 0.2s; }
+        .filter-chip:hover,.filter-chip.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+        .alert-msg { padding:0.85rem 1.1rem; border-radius:8px; font-size:0.88rem; display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; }
+        .alert-err { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
+        .alert-ok  { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+    </style>
+</head>
+<body>
+    <nav class="navbar glass-panel">
+        <div class="nav-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span></div>
+        <div class="nav-links">
+            <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="admin-nav-secondary">
+        <a href="/admin/dashboard"><i class="fa-solid fa-chart-pie"></i> Overview</a>
+        <a href="/admin/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance</a>
+        <a href="/admin/tasks"><i class="fa-solid fa-list-check"></i> Tasks</a>
+        <a href="/admin/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves</a>
+        <a href="/admin/holidays" class="active"><i class="fa-solid fa-star"></i> Holidays</a>
+        <a href="/admin/performance"><i class="fa-solid fa-award"></i> Performance</a>
+        <a href="/admin/view-employees"><i class="fa-solid fa-users"></i> Employees</a>
+        <a href="/admin/add-employee"><i class="fa-solid fa-user-plus"></i> Add Employee</a>
+        <a href="/admin/settings"><i class="fa-solid fa-gear"></i> Settings</a>
+    </div>
+
+    <main class="main-container fade-in">
+        <div class="flex-between mb-4">
+            <h2><i class="fa-solid fa-star"></i> Holiday Management</h2>
+            <button class="btn btn-primary" onclick="openModal()"><i class="fa-solid fa-plus"></i> Add Holiday</button>
+        </div>
+
+        <div id="page-alert" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="page-alert-text"></span></div>
+
+        <!-- Stats Row -->
+        <div class="dashboard-grid mb-4" style="grid-template-columns:repeat(4,1fr);">
+            <div class="stat-card glass-panel">
+                <div class="stat-title">Total Holidays</div>
+                <div class="stat-value" id="s-total">—</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-title" style="color:var(--accent-primary)">National</div>
+                <div class="stat-value" id="s-national">—</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-title" style="color:var(--success)">Company</div>
+                <div class="stat-value" id="s-company">—</div>
+            </div>
+            <div class="stat-card glass-panel">
+                <div class="stat-title" style="color:var(--warning)">Optional</div>
+                <div class="stat-value" id="s-optional">—</div>
+            </div>
+        </div>
+
+        <!-- Filter + Table -->
+        <div class="glass-panel" style="padding:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;">
+                <h3 style="margin:0;">Holiday Calendar</h3>
+                <div class="filter-bar" style="margin:0;">
+                    <button class="filter-chip active" id="fc-all" onclick="filterTable('',this)">All</button>
+                    <button class="filter-chip" onclick="filterTable('National',this)">National</button>
+                    <button class="filter-chip" onclick="filterTable('Company',this)">Company</button>
+                    <button class="filter-chip" onclick="filterTable('Optional',this)">Optional</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Name</th><th>Date</th><th>Day</th>
+                            <th>Type</th><th>Description</th><th>Status</th><th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holiday-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div id="holiday-modal" class="modal">
+        <div class="modal-content" style="max-width:520px;">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h3 id="modal-title" class="mb-3"><i class="fa-solid fa-star" style="color:var(--accent-primary)"></i> Add Holiday</h3>
+            <div id="modal-alert" style="display:none;" class="alert-msg alert-err"><i class="fa-solid fa-circle-xmark"></i><span id="modal-alert-text"></span></div>
+            <form id="holiday-form">
+                <input type="hidden" id="edit-id" value="">
+                <div class="grid-2">
+                    <div class="form-group" style="grid-column:1/-1;">
+                        <label class="required">Holiday Name</label>
+                        <input id="h-name" class="form-control" placeholder="e.g. Republic Day" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Date</label>
+                        <input type="date" id="h-date" class="form-control" required onchange="autoFillDay()">
+                    </div>
+                    <div class="form-group">
+                        <label>Day (auto-filled)</label>
+                        <input id="h-day" class="form-control" placeholder="e.g. Monday" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Holiday Type</label>
+                        <select id="h-type" class="form-control" required>
+                            <option value="National">National</option>
+                            <option value="Company">Company</option>
+                            <option value="Optional">Optional</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="active-group" style="display:none;">
+                        <label>Status</label>
+                        <select id="h-active" class="form-control">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="h-desc" class="form-control" rows="2" placeholder="Brief description (optional)"></textarea>
+                </div>
+                <div style="display:flex;gap:0.75rem;">
+                    <button type="submit" class="btn btn-primary" style="flex:1;" id="modal-submit-btn"><i class="fa-solid fa-plus"></i> Add Holiday</button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div id="del-modal" class="modal">
+        <div class="modal-content" style="max-width:400px;text-align:center;">
+            <button class="modal-close" onclick="document.getElementById('del-modal').classList.remove('active')">&times;</button>
+            <div style="font-size:2.5rem;margin-bottom:1rem;">🗑️</div>
+            <h3 class="mb-2">Delete Holiday?</h3>
+            <p style="color:var(--text-secondary);margin-bottom:1.5rem;">This action cannot be undone.</p>
+            <div style="display:flex;gap:0.75rem;">
+                <button id="del-confirm-btn" class="btn" style="flex:1;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;"><i class="fa-solid fa-trash"></i> Delete</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('del-modal').classList.remove('active')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allHolidays = [], currentDeleteId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) { window.location.href='/login'; return; }
+                const me = await r.json();
+                if (me.role !== 'Admin') { window.location.href='/employee/dashboard'; return; }
+                document.getElementById('nav-user-name').textContent = me.employee_name;
+            } catch(e) { window.location.href='/login'; return; }
+            await loadHolidays();
+        });
+
+        async function loadHolidays() {
+            const res = await fetch('/api/admin/holidays');
+            if (!res.ok) return;
+            const data = await res.json();
+            allHolidays = data.holidays;
+            updateStats(allHolidays);
+            renderTable(allHolidays);
+        }
+
+        function updateStats(list) {
+            document.getElementById('s-total').textContent = list.length;
+            document.getElementById('s-national').textContent = list.filter(h=>h.holiday_type==='National').length;
+            document.getElementById('s-company').textContent = list.filter(h=>h.holiday_type==='Company').length;
+            document.getElementById('s-optional').textContent = list.filter(h=>h.holiday_type==='Optional').length;
+        }
+
+        function filterTable(type, btn) {
+            document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTable(type ? allHolidays.filter(h=>h.holiday_type===type) : allHolidays);
+        }
+
+        function renderTable(list) {
+            const tbody = document.getElementById('holiday-tbody');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-secondary);">No holidays found.</td></tr>';
+                return;
+            }
+            const typeMap = { National:'ht-national', Company:'ht-company', Optional:'ht-optional' };
+            const today = new Date().toISOString().split('T')[0];
+            tbody.innerHTML = list.map((h,i) => `
+                <tr class="holiday-row" style="${!h.is_active ? 'opacity:0.55;' : ''}">
+                    <td>${i+1}</td>
+                    <td style="font-weight:600;">${h.name}</td>
+                    <td>${h.date}</td>
+                    <td>${h.day}</td>
+                    <td><span class="badge badge-type ${typeMap[h.holiday_type]||''}">${h.holiday_type}</span></td>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${h.description}">${h.description||'—'}</td>
+                    <td><span class="badge ${h.is_active ? 'badge-done' : 'badge-notstarted'}">${h.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                        <button class="btn btn-outline btn-sm" onclick="openEdit(${h.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-sm" style="background:rgba(220,38,38,0.1);color:#dc2626;border:1px solid rgba(220,38,38,0.2);" onclick="confirmDelete(${h.id})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function autoFillDay() {
+            const val = document.getElementById('h-date').value;
+            if (val) {
+                const d = new Date(val + 'T00:00:00');
+                document.getElementById('h-day').value = d.toLocaleDateString('en-IN', {weekday:'long'});
+            }
+        }
+
+        function openModal() {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('holiday-form').reset();
+            document.getElementById('h-day').value = '';
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-star" style="color:var(--accent-primary)"></i> Add Holiday';
+            document.getElementById('modal-submit-btn').innerHTML = '<i class="fa-solid fa-plus"></i> Add Holiday';
+            document.getElementById('active-group').style.display = 'none';
+            document.getElementById('modal-alert').style.display = 'none';
+            document.getElementById('holiday-modal').classList.add('active');
+        }
+
+        function openEdit(id) {
+            const h = allHolidays.find(x=>x.id===id);
+            if (!h) return;
+            document.getElementById('edit-id').value = id;
+            document.getElementById('h-name').value = h.name;
+            document.getElementById('h-date').value = h.date;
+            document.getElementById('h-day').value = h.day;
+            document.getElementById('h-type').value = h.holiday_type;
+            document.getElementById('h-desc').value = h.description;
+            document.getElementById('h-active').value = String(h.is_active);
+            document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-pen" style="color:var(--accent-primary)"></i> Edit Holiday';
+            document.getElementById('modal-submit-btn').innerHTML = '<i class="fa-solid fa-save"></i> Save Changes';
+            document.getElementById('active-group').style.display = 'block';
+            document.getElementById('modal-alert').style.display = 'none';
+            document.getElementById('holiday-modal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('holiday-modal').classList.remove('active'); }
+
+        document.getElementById('holiday-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const body = {
+                name: document.getElementById('h-name').value,
+                date: document.getElementById('h-date').value,
+                day: document.getElementById('h-day').value || undefined,
+                description: document.getElementById('h-desc').value || null,
+                holiday_type: document.getElementById('h-type').value,
+                is_active: document.getElementById('h-active').value !== 'false',
+            };
+            const url = id ? `/api/admin/holidays/${id}` : '/api/admin/holidays';
+            const method = id ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+            const data = await res.json();
+            if (res.ok) {
+                closeModal();
+                showPageAlert(data.message, 'ok');
+                await loadHolidays();
+            } else {
+                document.getElementById('modal-alert-text').textContent = data.detail || 'Error.';
+                document.getElementById('modal-alert').style.display = 'flex';
+            }
+        });
+
+        function confirmDelete(id) {
+            currentDeleteId = id;
+            document.getElementById('del-modal').classList.add('active');
+        }
+
+        document.getElementById('del-confirm-btn').addEventListener('click', async () => {
+            if (!currentDeleteId) return;
+            const res = await fetch(`/api/admin/holidays/${currentDeleteId}`, { method:'DELETE' });
+            const data = await res.json();
+            document.getElementById('del-modal').classList.remove('active');
+            if (res.ok) {
+                showPageAlert(data.message, 'ok');
+                await loadHolidays();
+            }
+        });
+
+        function showPageAlert(msg, type) {
+            const el = document.getElementById('page-alert');
+            document.getElementById('page-alert-text').textContent = msg;
+            el.className = `alert-msg alert-${type}`;
+            el.style.display = 'flex';
+            setTimeout(() => { el.style.display='none'; }, 3500);
+        }
+
+        async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
+    </script>
+</body>
+</html>

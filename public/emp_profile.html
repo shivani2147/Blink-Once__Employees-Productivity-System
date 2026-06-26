@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        body { display:flex; flex-direction:row; min-height:100vh; overflow-x:hidden; }
+        body::before { display:none; }
+        .sidebar { width:240px; min-height:100vh; flex-shrink:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); border-right:1px solid var(--border-color); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; z-index:50; }
+        .dark-theme .sidebar { background:rgba(15,23,42,0.92); }
+        .sidebar-brand { padding:1.5rem 1.25rem 1rem; font-size:1.25rem; font-weight:700; letter-spacing:-0.5px; border-bottom:1px solid var(--border-color); }
+        .sidebar-brand small { display:block; font-size:0.7rem; font-weight:500; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; margin-top:0.15rem; }
+        .sidebar-nav { padding:1rem 0.75rem; flex:1; }
+        .sidebar-nav a { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.85rem; border-radius:10px; font-size:0.9rem; font-weight:500; color:var(--text-secondary); text-decoration:none; margin-bottom:0.25rem; transition:all 0.2s; }
+        .sidebar-nav a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .sidebar-nav a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); font-weight:600; box-shadow:inset 3px 0 0 var(--accent-primary); }
+        .sidebar-nav a i { width:18px; text-align:center; }
+        .sidebar-footer { padding:1rem 0.75rem; border-top:1px solid var(--border-color); }
+        .sidebar-user { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.5rem; margin-bottom:0.5rem; }
+        .sidebar-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-gradient); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.85rem; flex-shrink:0; overflow:hidden; }
+        .sidebar-avatar img { width:100%; height:100%; object-fit:cover; }
+        .sidebar-user-name { font-size:0.85rem; font-weight:600; }
+        .sidebar-user-role { font-size:0.7rem; color:var(--text-secondary); }
+
+        .page-wrapper { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 2rem; background:rgba(255,255,255,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border-color); position:sticky; top:0; z-index:40; }
+        .dark-theme .topbar { background:rgba(17,24,39,0.85); }
+        .topbar-title { font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:0.5rem; }
+        .page-content { flex:1; padding:1.75rem 2rem 2rem; }
+
+        .sub-tabs { display:flex; gap:0.4rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .tab-btn { padding:0.45rem 1rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); background:none; border:1px solid var(--border-color); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; }
+        .tab-btn:hover { background:rgba(79,70,229,0.06); color:var(--accent-primary); border-color:rgba(79,70,229,0.2); }
+        .tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+
+        /* Profile hero */
+        .profile-hero {
+            display:flex; align-items:center; gap:1.75rem;
+            padding:1.75rem 2rem; border-radius:var(--border-radius);
+            background:var(--accent-gradient); color:white;
+            margin-bottom:1.5rem; position:relative; overflow:hidden;
+        }
+        .profile-hero::before {
+            content:''; position:absolute; top:-40px; right:-40px;
+            width:200px; height:200px; border-radius:50%;
+            background:rgba(255,255,255,0.07);
+        }
+        .profile-hero-avatar {
+            width:90px; height:90px; border-radius:50%;
+            border:3px solid rgba(255,255,255,0.4);
+            overflow:hidden; flex-shrink:0;
+            background:rgba(255,255,255,0.2);
+            display:flex; align-items:center; justify-content:center;
+            font-size:2rem; font-weight:700; cursor:pointer;
+            position:relative;
+        }
+        .profile-hero-avatar img { width:100%; height:100%; object-fit:cover; }
+        .avatar-overlay {
+            position:absolute; inset:0; border-radius:50%;
+            background:rgba(0,0,0,0.4); display:flex;
+            align-items:center; justify-content:center;
+            opacity:0; transition:opacity 0.2s;
+            font-size:0.9rem; color:white;
+        }
+        .profile-hero-avatar:hover .avatar-overlay { opacity:1; }
+        .profile-hero-info h2 { color:white; margin-bottom:0.3rem; }
+        .profile-hero-info p { color:rgba(255,255,255,0.8); font-size:0.9rem; margin:0; }
+        .profile-hero-chips { display:flex; gap:0.6rem; flex-wrap:wrap; margin-top:0.75rem; }
+        .hero-chip { padding:0.25rem 0.7rem; border-radius:50px; background:rgba(255,255,255,0.15); font-size:0.76rem; color:white; display:flex; align-items:center; gap:0.3rem; }
+
+        /* Field items */
+        .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        @media(max-width:700px) { .field-grid { grid-template-columns:1fr; } }
+        .field-item { padding:0.9rem 1.1rem; border-radius:10px; border:1px solid var(--border-color); background:rgba(0,0,0,0.015); }
+        .dark-theme .field-item { background:rgba(255,255,255,0.03); }
+        .field-label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-secondary); font-weight:600; margin-bottom:0.3rem; }
+        .field-value { font-size:0.95rem; font-weight:500; }
+        .field-value.empty { color:var(--text-secondary); font-style:italic; }
+        .field-editable { border-color:rgba(79,70,229,0.2); }
+        .field-editable:focus-within { border-color:var(--accent-primary); box-shadow:0 0 0 3px rgba(79,70,229,0.1); }
+        .editable-tag { font-size:0.68rem; color:var(--accent-primary); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:0.3rem; display:flex; align-items:center; gap:0.25rem; }
+
+        /* Documents */
+        .doc-card { display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:0.65rem; transition:all 0.2s; }
+        .doc-card:hover { border-color:rgba(79,70,229,0.2); box-shadow:0 4px 12px rgba(79,70,229,0.06); }
+        .doc-icon { width:44px; height:44px; border-radius:10px; background:rgba(79,70,229,0.08); display:flex; align-items:center; justify-content:center; color:var(--accent-primary); font-size:1.1rem; flex-shrink:0; }
+        .doc-info { flex:1; min-width:0; }
+        .doc-name { font-weight:600; font-size:0.9rem; margin-bottom:0.15rem; }
+        .doc-sub { font-size:0.78rem; color:var(--text-secondary); }
+        .doc-badge-available { background:rgba(5,150,105,0.1); color:#059669; border:1px solid rgba(5,150,105,0.2); }
+        .doc-badge-missing { background:rgba(100,116,139,0.08); color:#64748b; border:1px solid rgba(100,116,139,0.12); }
+
+        .alert-msg { padding:0.85rem 1.1rem; border-radius:8px; font-size:0.88rem; display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; }
+        .alert-err { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
+        .alert-ok  { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+
+        input[type="file"] { display:none; }
+
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile" class="active"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div><div class="sidebar-user-name" id="sb-name">…</div><div class="sidebar-user-role">Employee</div></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.4rem;" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i> Toggle Theme</button>
+            <button class="btn btn-outline btn-sm" style="width:100%;color:var(--danger);border-color:rgba(220,38,38,0.2);" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+        </div>
+    </aside>
+
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-user-circle" style="color:var(--accent-primary)"></i> My Profile</div>
+        </header>
+        <div class="page-content fade-in">
+
+            <!-- Profile Hero -->
+            <div class="profile-hero" id="profile-hero">
+                <div class="profile-hero-avatar" id="avatar-btn" onclick="document.getElementById('photo-input').click()" title="Click to change photo">
+                    <span id="hero-initials">?</span>
+                    <div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>
+                </div>
+                <div class="profile-hero-info">
+                    <h2 id="hero-name">Loading…</h2>
+                    <p id="hero-desig">—</p>
+                    <div class="profile-hero-chips">
+                        <span class="hero-chip"><i class="fa-solid fa-id-card"></i> <span id="hero-code">—</span></span>
+                        <span class="hero-chip"><i class="fa-solid fa-building"></i> <span id="hero-dept">—</span></span>
+                        <span class="hero-chip"><i class="fa-solid fa-envelope"></i> <span id="hero-email">—</span></span>
+                    </div>
+                </div>
+                <input type="file" id="photo-input" accept="image/*" onchange="uploadPhoto(this)">
+            </div>
+
+            <div id="photo-alert" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="photo-alert-text"></span></div>
+            <div id="save-alert" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="save-alert-text"></span></div>
+
+            <!-- Sub-tabs -->
+            <div class="sub-tabs">
+                <button class="tab-btn active" onclick="switchTab('personal',this)"><i class="fa-solid fa-user"></i> Personal Details</button>
+                <button class="tab-btn" onclick="switchTab('employment',this)"><i class="fa-solid fa-briefcase"></i> Employment Details</button>
+                <button class="tab-btn" onclick="switchTab('documents',this)"><i class="fa-solid fa-folder-open"></i> Documents</button>
+            </div>
+
+            <!-- PERSONAL DETAILS -->
+            <div id="tab-personal" class="tab-content active">
+                <div class="glass-panel" style="padding:1.75rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-user" style="color:var(--accent-primary)"></i> Personal Details</h3>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);"><i class="fa-solid fa-lock" style="color:var(--accent-primary)"></i> Editable fields are highlighted</span>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field-item">
+                            <div class="field-label">Full Name</div>
+                            <div class="field-value" id="f-name">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Employee Code</div>
+                            <div class="field-value" id="f-code">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Email Address</div>
+                            <div class="field-value" id="f-email">—</div>
+                        </div>
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
+                            <div class="field-label">Mobile Number</div>
+                            <input id="f-mobile" class="form-control" style="margin-top:0.25rem;" placeholder="Enter mobile number">
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Date of Birth</div>
+                            <div class="field-value" id="f-dob">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Gender</div>
+                            <div class="field-value" id="f-gender">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Emergency Contact</div>
+                            <div class="field-value" id="f-emergency">—</div>
+                        </div>
+                    </div>
+
+                    <div class="field-item field-editable" style="margin-top:1rem;">
+                        <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
+                        <div class="field-label">Address</div>
+                        <textarea id="f-address" class="form-control" rows="2" style="margin-top:0.25rem;" placeholder="Enter your address"></textarea>
+                    </div>
+
+                    <div style="margin-top:1.25rem;">
+                        <button class="btn btn-primary" onclick="saveProfile()"><i class="fa-solid fa-save"></i> Save Changes</button>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:1rem;">Only Mobile Number and Address can be updated.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EMPLOYMENT DETAILS -->
+            <div id="tab-employment" class="tab-content">
+                <div class="glass-panel" style="padding:1.75rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-briefcase" style="color:var(--accent-primary)"></i> Employment Details</h3>
+                    <div class="field-grid">
+                        <div class="field-item">
+                            <div class="field-label">Department</div>
+                            <div class="field-value" id="f-dept">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Designation</div>
+                            <div class="field-value" id="f-desig">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Date of Joining</div>
+                            <div class="field-value" id="f-doj">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Employment Type</div>
+                            <div class="field-value" id="f-salary-type">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Experience</div>
+                            <div class="field-value" id="f-exp">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Highest Qualification</div>
+                            <div class="field-value" id="f-qual">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Institution</div>
+                            <div class="field-value" id="f-inst">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Camera Skill Level</div>
+                            <div class="field-value" id="f-camera">—</div>
+                        </div>
+                    </div>
+                    <div class="field-grid" style="margin-top:1rem;">
+                        <div class="field-item">
+                            <div class="field-label">Skills</div>
+                            <div class="field-value" id="f-skills">—</div>
+                        </div>
+                        <div class="field-item">
+                            <div class="field-label">Software Knowledge</div>
+                            <div class="field-value" id="f-software">—</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:1rem; padding:0.9rem 1.1rem; border-radius:10px; background:rgba(79,70,229,0.04); border:1px solid rgba(79,70,229,0.1); font-size:0.85rem; color:var(--text-secondary);">
+                        <i class="fa-solid fa-circle-info" style="color:var(--accent-primary)"></i>
+                        Employment details are managed by the Administrator. Contact HR to update these fields.
+                    </div>
+                </div>
+            </div>
+
+            <!-- DOCUMENTS -->
+            <div id="tab-documents" class="tab-content">
+                <div class="glass-panel" style="padding:1.75rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-folder-open" style="color:var(--accent-primary)"></i> My Documents</h3>
+                    <div id="doc-list"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let profileData = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) { window.location.href='/login'; return; }
+                const me = await r.json();
+                if (me.role === 'Admin') { window.location.href='/admin/dashboard'; return; }
+            } catch(e) { window.location.href='/login'; return; }
+            await loadProfile();
+        });
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        async function loadProfile() {
+            const res = await fetch('/api/employee/profile');
+            if (!res.ok) return;
+            profileData = await res.json();
+            const p = profileData;
+
+            // Sidebar
+            document.getElementById('sb-name').textContent = p.employee_name || '—';
+            const initials = p.employee_name ? p.employee_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
+
+            // Avatar
+            const sbAv = document.getElementById('sb-avatar');
+            const heroAv = document.getElementById('avatar-btn');
+            if (p.photo_path) {
+                sbAv.innerHTML = `<img src="/${p.photo_path}" alt="avatar">`;
+                heroAv.innerHTML = `<img src="/${p.photo_path}" alt="photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+            } else {
+                sbAv.textContent = initials;
+                heroAv.innerHTML = `<span>${initials}</span><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+            }
+            heroAv.onclick = () => document.getElementById('photo-input').click();
+
+            // Hero
+            document.getElementById('hero-name').textContent = p.employee_name || '—';
+            document.getElementById('hero-desig').textContent = p.designation || '—';
+            document.getElementById('hero-code').textContent = p.employee_code || '—';
+            document.getElementById('hero-dept').textContent = p.department || '—';
+            document.getElementById('hero-email').textContent = p.email || '—';
+            document.getElementById('hero-initials').textContent = initials;
+
+            // Personal tab (read-only)
+            const v = (val) => val || '<span class="empty">Not provided</span>';
+            document.getElementById('f-name').innerHTML = v(p.employee_name);
+            document.getElementById('f-code').innerHTML = v(p.employee_code);
+            document.getElementById('f-email').innerHTML = v(p.email);
+            document.getElementById('f-dob').innerHTML = v(p.dob);
+            document.getElementById('f-gender').innerHTML = v(p.gender);
+            document.getElementById('f-emergency').innerHTML = v(p.emergency_contact);
+
+            // Editable
+            document.getElementById('f-mobile').value = p.mobile_number || '';
+            document.getElementById('f-address').value = p.address || '';
+
+            // Employment tab
+            document.getElementById('f-dept').innerHTML = v(p.department);
+            document.getElementById('f-desig').innerHTML = v(p.designation);
+            document.getElementById('f-doj').innerHTML = v(p.date_of_joining);
+            document.getElementById('f-salary-type').innerHTML = v(p.salary_type);
+            document.getElementById('f-exp').innerHTML = v(p.experience);
+            document.getElementById('f-qual').innerHTML = v(p.highest_qualification);
+            document.getElementById('f-inst').innerHTML = v(p.institution_name);
+            document.getElementById('f-camera').innerHTML = v(p.camera_skill_level);
+            document.getElementById('f-skills').innerHTML = v(p.skills);
+            document.getElementById('f-software').innerHTML = v(p.software_knowledge);
+
+            // Documents tab
+            const docs = [
+                { name:'Resume / CV', key:'resume_path', icon:'fa-file-pdf' },
+                { name:'Profile Photo', key:'photo_path', icon:'fa-image' },
+                { name:'Aadhaar Card (Front)', key:'aadhaar_front_path', icon:'fa-id-card' },
+                { name:'Aadhaar Card (Back)', key:'aadhaar_back_path', icon:'fa-id-card' },
+                { name:'Certificates', key:'certificates_path', icon:'fa-certificate' },
+            ];
+            document.getElementById('doc-list').innerHTML = docs.map(d => {
+                const path = p[d.key];
+                const available = !!path;
+                return `<div class="doc-card">
+                    <div class="doc-icon"><i class="fa-solid ${d.icon}"></i></div>
+                    <div class="doc-info">
+                        <div class="doc-name">${d.name}</div>
+                        <div class="doc-sub">${available ? path.split('/').pop() : 'Not uploaded'}</div>
+                    </div>
+                    <span class="badge ${available?'doc-badge-available':'doc-badge-missing'}">
+                        ${available ? '<i class="fa-solid fa-check"></i> Available' : '<i class="fa-solid fa-xmark"></i> Missing'}
+                    </span>
+                    ${available ? `<a href="/${path}" target="_blank" class="btn btn-outline btn-sm"><i class="fa-solid fa-download"></i> View</a>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        async function saveProfile() {
+            const mobile = document.getElementById('f-mobile').value.trim();
+            const address = document.getElementById('f-address').value.trim();
+            const res = await fetch('/api/employee/profile/update', {
+                method:'PUT', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ mobile_number: mobile, address })
+            });
+            const data = await res.json();
+            const alert = document.getElementById('save-alert');
+            const alertText = document.getElementById('save-alert-text');
+            alertText.textContent = res.ok ? data.message : (data.detail || 'Error saving.');
+            alert.className = `alert-msg ${res.ok ? 'alert-ok' : 'alert-err'}`;
+            alert.style.display = 'flex';
+            setTimeout(() => { alert.style.display='none'; }, 3000);
+        }
+
+        async function uploadPhoto(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('photo', file);
+            const res = await fetch('/api/employee/profile/photo', { method:'POST', body:fd });
+            const data = await res.json();
+            const alert = document.getElementById('photo-alert');
+            document.getElementById('photo-alert-text').textContent = res.ok ? 'Profile photo updated!' : (data.detail || 'Error uploading photo.');
+            alert.style.display = 'flex';
+            if (res.ok && data.photo_path) {
+                const heroAv = document.getElementById('avatar-btn');
+                heroAv.innerHTML = `<img src="/${data.photo_path}?t=${Date.now()}" alt="photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+                heroAv.onclick = () => document.getElementById('photo-input').click();
+                document.getElementById('sb-avatar').innerHTML = `<img src="/${data.photo_path}?t=${Date.now()}" alt="avatar">`;
+            }
+            setTimeout(() => { alert.style.display='none'; }, 3500);
+            input.value = '';
+        }
+
+        async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
+    </script>
+</body>
+</html>

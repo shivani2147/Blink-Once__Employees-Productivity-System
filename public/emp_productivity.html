@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Productivity Records | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        body { display:flex; flex-direction:row; min-height:100vh; overflow-x:hidden; }
+        body::before { display:none; }
+        .sidebar { width:240px; min-height:100vh; flex-shrink:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); border-right:1px solid var(--border-color); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; z-index:50; }
+        .dark-theme .sidebar { background:rgba(15,23,42,0.92); }
+        .sidebar-brand { padding:1.5rem 1.25rem 1rem; font-size:1.25rem; font-weight:700; letter-spacing:-0.5px; border-bottom:1px solid var(--border-color); }
+        .sidebar-brand small { display:block; font-size:0.7rem; font-weight:500; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; margin-top:0.15rem; }
+        .sidebar-nav { padding:1rem 0.75rem; flex:1; }
+        .sidebar-nav a { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.85rem; border-radius:10px; font-size:0.9rem; font-weight:500; color:var(--text-secondary); text-decoration:none; margin-bottom:0.25rem; transition:all 0.2s; }
+        .sidebar-nav a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .sidebar-nav a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); font-weight:600; box-shadow:inset 3px 0 0 var(--accent-primary); }
+        .sidebar-nav a i { width:18px; text-align:center; }
+        .sidebar-footer { padding:1rem 0.75rem; border-top:1px solid var(--border-color); }
+        .sidebar-user { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.5rem; margin-bottom:0.5rem; }
+        .sidebar-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-gradient); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.85rem; flex-shrink:0; overflow:hidden; }
+        .sidebar-avatar img { width:100%; height:100%; object-fit:cover; }
+        .sidebar-user-name { font-size:0.85rem; font-weight:600; }
+        .sidebar-user-role { font-size:0.7rem; color:var(--text-secondary); }
+
+        .page-wrapper { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 2rem; background:rgba(255,255,255,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border-color); position:sticky; top:0; z-index:40; }
+        .dark-theme .topbar { background:rgba(17,24,39,0.85); }
+        .topbar-title { font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:0.5rem; }
+        .page-content { flex:1; padding:1.75rem 2rem 2rem; }
+
+        .sub-tabs { display:flex; gap:0.4rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .tab-btn { padding:0.45rem 1rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); background:none; border:1px solid var(--border-color); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; }
+        .tab-btn:hover { background:rgba(79,70,229,0.06); color:var(--accent-primary); border-color:rgba(79,70,229,0.2); }
+        .tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+
+        .rec-table { width:100%; border-collapse:collapse; }
+        .rec-table th,.rec-table td { padding:0.85rem 1rem; text-align:left; border-bottom:1px solid var(--border-color); font-size:0.87rem; }
+        .rec-table th { background:rgba(241,245,249,0.85); font-weight:600; font-size:0.73rem; text-transform:uppercase; letter-spacing:1px; position:sticky; top:0; }
+        .dark-theme .rec-table th { background:rgba(17,24,39,0.85); }
+        .rec-table tbody tr:hover { background:rgba(79,70,229,0.02); }
+
+        .badge-low    { background:rgba(5,150,105,0.1); color:#059669; border:1px solid rgba(5,150,105,0.2); }
+        .badge-medium { background:rgba(217,119,6,0.1); color:#d97706; border:1px solid rgba(217,119,6,0.2); }
+        .badge-high   { background:rgba(220,38,38,0.1); color:#dc2626; border:1px solid rgba(220,38,38,0.2); }
+
+        /* Edit modal */
+        .edit-modal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(8px); z-index:1000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2rem 1rem; }
+        .edit-modal.active { display:flex; }
+        .edit-box { background:var(--bg-glass); border:1px solid var(--border-color); border-radius:var(--border-radius); padding:2rem; width:100%; max-width:720px; box-shadow:var(--shadow-soft); animation:slideUp 0.3s ease; margin:auto; }
+        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        @media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+
+        /* History */
+        .hist-entry { padding:1rem 1.25rem; border-radius:10px; border:1px solid var(--border-color); margin-bottom:0.75rem; font-size:0.87rem; }
+        .hist-entry-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; font-weight:600; }
+        .hist-diff { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+        .hist-old { background:rgba(220,38,38,0.05); border:1px solid rgba(220,38,38,0.1); border-radius:6px; padding:0.5rem 0.75rem; }
+        .hist-new { background:rgba(5,150,105,0.05); border:1px solid rgba(5,150,105,0.1); border-radius:6px; padding:0.5rem 0.75rem; }
+        .hist-label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:0.25rem; }
+
+        .alert-msg { padding:0.85rem 1.1rem; border-radius:8px; font-size:0.88rem; display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; }
+        .alert-err { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
+        .alert-ok  { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/productivity" class="active"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div><div class="sidebar-user-name" id="sb-name">…</div><div class="sidebar-user-role">Employee</div></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.4rem;" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i> Toggle Theme</button>
+            <button class="btn btn-outline btn-sm" style="width:100%;color:var(--danger);border-color:rgba(220,38,38,0.2);" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+        </div>
+    </aside>
+
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-chart-line" style="color:var(--accent-primary)"></i> My Productivity Records</div>
+        </header>
+        <div class="page-content fade-in">
+            <div class="sub-tabs">
+                <button class="tab-btn active" onclick="switchTab('records',this)"><i class="fa-solid fa-table-list"></i> My Records</button>
+                <button class="tab-btn" onclick="switchTab('add',this)"><i class="fa-solid fa-plus"></i> Add Record</button>
+                <button class="tab-btn" onclick="switchTab('edithistory',this)"><i class="fa-solid fa-clock-rotate-left"></i> Edit History</button>
+            </div>
+
+            <!-- MY RECORDS TAB -->
+            <div id="tab-records" class="tab-content active">
+                <div id="rec-alert" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="rec-alert-text"></span></div>
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-table-list" style="color:var(--accent-primary)"></i> All My Records</h3>
+                        <span id="rec-count" style="font-size:0.85rem;color:var(--text-secondary);">Loading…</span>
+                    </div>
+                    <div class="table-container">
+                        <table class="rec-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th><th>Date</th><th>Project</th><th>Client</th><th>Status</th>
+                                    <th>Priority</th><th>Deadline</th><th>Edits</th><th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rec-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADD RECORD TAB -->
+            <div id="tab-add" class="tab-content">
+                <div class="glass-panel" style="padding:1.75rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-plus-circle" style="color:var(--accent-primary)"></i> Add Productivity Record</h3>
+                    <div id="add-alert" style="display:none;" class="alert-msg alert-err"><i class="fa-solid fa-circle-xmark"></i><span id="add-alert-text"></span></div>
+                    <div id="add-success" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="add-success-text"></span></div>
+                    <form id="add-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="required">Client Name</label>
+                                <input name="client_name" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Project Name</label>
+                                <input name="project_name" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Date</label>
+                                <input type="date" name="date" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Start Date</label>
+                                <input type="date" name="start_date" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">End Date</label>
+                                <input type="date" name="end_date" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Deadline Date</label>
+                                <input type="date" name="deadline_date" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Editing Type</label>
+                                <select name="editing_type" class="form-control" required>
+                                    <option value="">Select…</option>
+                                    <option>Wedding</option><option>Engagement</option><option>Pre-Wedding</option>
+                                    <option>Birthday</option><option>Corporate</option><option>Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Shoot Type</label>
+                                <select name="shoot_type" class="form-control" required>
+                                    <option value="">Select…</option>
+                                    <option>Indoor</option><option>Outdoor</option><option>Hybrid</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Video Duration (hrs)</label>
+                                <input type="number" name="video_duration" class="form-control" min="0.1" step="0.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Cameras Used</label>
+                                <input type="number" name="cameras_used" class="form-control" min="1" value="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Status</label>
+                                <select name="status" class="form-control" required>
+                                    <option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="required">Priority</label>
+                                <select name="priority" class="form-control" required>
+                                    <option>Low</option><option selected>Medium</option><option>High</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Hard Disk Number</label>
+                                <input name="harddisk_number" class="form-control" placeholder="e.g. HD-01">
+                            </div>
+                            <div class="form-group">
+                                <label>Folder Name <span style="color:var(--text-secondary);font-size:0.78rem;">(optional)</span></label>
+                                <input name="harddisk_directory" class="form-control" placeholder="e.g. Wedding_2025_Sharma">
+                            </div>
+                            <div class="form-group">
+                                <label>Uploaded to Drive?</label>
+                                <select name="uploaded_to_drive" class="form-control">
+                                    <option value="No">No</option><option value="Yes">Yes</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Drive Link</label>
+                                <input name="drive_link" class="form-control" placeholder="https://drive.google.com/…">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Task Description</label>
+                            <textarea name="task_description" class="form-control" rows="2" placeholder="Brief description of the task…"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Comments</label>
+                            <textarea name="comments" class="form-control" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Record</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- EDIT HISTORY TAB -->
+            <div id="tab-edithistory" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary)"></i> My Edit History</h3>
+                    <div id="hist-list"><div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">Loading edit history…</div></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="edit-modal">
+        <div class="edit-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+                <h3 style="margin:0;"><i class="fa-solid fa-pen-to-square" style="color:var(--accent-primary)"></i> Edit Record</h3>
+                <button class="btn btn-outline btn-sm" onclick="closeEdit()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="edit-msg" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-check"></i><span id="edit-msg-text"></span></div>
+            <form id="edit-form">
+                <input type="hidden" id="edit-id">
+                <div class="form-grid">
+                    <div class="form-group"><label>Status</label>
+                        <select id="e-status" class="form-control"><option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option></select>
+                    </div>
+                    <div class="form-group"><label>Priority</label>
+                        <select id="e-priority" class="form-control"><option>Low</option><option>Medium</option><option>High</option></select>
+                    </div>
+                    <div class="form-group"><label>Deadline Date</label>
+                        <input type="date" id="e-deadline" class="form-control">
+                    </div>
+                    <div class="form-group"><label>Uploaded to Drive?</label>
+                        <select id="e-drive-uploaded" class="form-control"><option value="No">No</option><option value="Yes">Yes</option></select>
+                    </div>
+                    <div class="form-group"><label>Drive Link</label>
+                        <input id="e-drive" class="form-control" placeholder="https://drive.google.com/…">
+                    </div>
+                    <div class="form-group"><label>Folder Name <span style="color:var(--text-secondary);font-size:0.78rem;">(optional)</span></label>
+                        <input id="e-folder" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group"><label>Comments</label>
+                    <textarea id="e-comments" class="form-control" rows="2"></textarea>
+                </div>
+                <div style="display:flex;gap:0.75rem;">
+                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-save"></i> Save Changes</button>
+                    <button type="button" class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allRecords = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) { window.location.href='/login'; return; }
+                const me = await r.json();
+                if (me.role==='Admin') { window.location.href='/admin/dashboard'; return; }
+                document.getElementById('sb-name').textContent = me.employee_name;
+            } catch(e) { window.location.href='/login'; return; }
+            await loadRecords();
+            await loadEditHistory();
+        });
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        async function loadRecords() {
+            const res = await fetch('/api/employee/records');
+            if (!res.ok) return;
+            const data = await res.json();
+            allRecords = data.records;
+            document.getElementById('rec-count').textContent = `${allRecords.length} record(s)`;
+            const tbody = document.getElementById('rec-tbody');
+            if (allRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--text-secondary);">No records yet. Add your first record!</td></tr>';
+                return;
+            }
+            const today = new Date().toISOString().split('T')[0];
+            tbody.innerHTML = allRecords.map((r, i) => {
+                const overdue = r.deadline_date && r.deadline_date < today && r.status !== 'Done';
+                const statusColors = {'Done':'#059669','Ongoing':'#2563eb','Not Started':'#dc2626','Hold':'#d97706'};
+                const sc = statusColors[r.status] || '#64748b';
+                return `<tr style="${overdue ? 'background:rgba(220,38,38,0.02)' : ''}">
+                    <td style="font-size:0.8rem;color:var(--text-secondary);">${i+1}</td>
+                    <td>${r.date||'—'}</td>
+                    <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.project_name}">${r.project_name}</td>
+                    <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.client_name}</td>
+                    <td><span style="color:${sc};font-weight:600;font-size:0.82rem;">${r.status}</span></td>
+                    <td><span class="badge badge-${(r.priority||'').toLowerCase()}">${r.priority}</span></td>
+                    <td style="font-size:0.82rem;color:${overdue?'var(--danger)':'inherit'};">${r.deadline_date||'—'}</td>
+                    <td style="text-align:center;">${r.edit_count > 0 ? `<span class="badge badge-ongoing" style="font-size:0.68rem;">${r.edit_count}</span>` : '<span style="color:var(--text-secondary);font-size:0.8rem;">0</span>'}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="openEdit(${r.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function openEdit(id) {
+            const r = allRecords.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('edit-id').value = id;
+            document.getElementById('e-status').value = r.status || 'Not Started';
+            document.getElementById('e-priority').value = r.priority || 'Medium';
+            document.getElementById('e-deadline').value = r.deadline_date || '';
+            document.getElementById('e-drive').value = r.drive_link || '';
+            document.getElementById('e-folder').value = r.folder_name || '';
+            document.getElementById('e-comments').value = r.comments || '';
+            document.getElementById('e-drive-uploaded').value = r.uploaded_to_drive ? 'Yes' : 'No';
+            document.getElementById('edit-msg').style.display = 'none';
+            document.getElementById('edit-modal').classList.add('active');
+        }
+
+        function closeEdit() { document.getElementById('edit-modal').classList.remove('active'); }
+
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const body = {
+                status: document.getElementById('e-status').value,
+                priority: document.getElementById('e-priority').value,
+                deadline_date: document.getElementById('e-deadline').value || null,
+                drive_link: document.getElementById('e-drive').value,
+                harddisk_directory: document.getElementById('e-folder').value,
+                comments: document.getElementById('e-comments').value,
+                uploaded_to_drive: document.getElementById('e-drive-uploaded').value,
+            };
+            const res = await fetch(`/api/employee/records/${id}`, {
+                method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const msg = document.getElementById('edit-msg');
+                document.getElementById('edit-msg-text').textContent = data.message;
+                msg.style.display = 'flex';
+                // Update local cache
+                const idx = allRecords.findIndex(r => r.id == id);
+                if (idx !== -1) { Object.assign(allRecords[idx], body); allRecords[idx].edit_count++; }
+                await loadRecords();
+                await loadEditHistory();
+                setTimeout(() => { closeEdit(); }, 1500);
+            }
+        });
+
+        // Add Record Form
+        document.getElementById('add-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const body = Object.fromEntries(fd.entries());
+            // Convert numeric fields
+            body.video_duration = parseFloat(body.video_duration);
+            body.cameras_used = parseInt(body.cameras_used);
+            document.getElementById('add-alert').style.display='none';
+            document.getElementById('add-success').style.display='none';
+            const res = await fetch('/api/employee/add', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('add-success-text').textContent = data.message;
+                document.getElementById('add-success').style.display='flex';
+                e.target.reset();
+                await loadRecords();
+            } else {
+                document.getElementById('add-alert-text').textContent = data.detail || 'Error adding record.';
+                document.getElementById('add-alert').style.display='flex';
+            }
+        });
+
+        async function loadEditHistory() {
+            const res = await fetch('/api/employee/all-edit-history');
+            if (!res.ok) return;
+            const data = await res.json();
+            const container = document.getElementById('hist-list');
+            if (data.history.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">No edit history yet.</div>';
+                return;
+            }
+            container.innerHTML = data.history.map(h => {
+                const changed = [];
+                Object.keys(h.new_values).forEach(k => {
+                    const ov = String(h.old_values[k]||''), nv = String(h.new_values[k]||'');
+                    if (ov !== nv) changed.push({key:k, old:ov, new:nv});
+                });
+                const changesHtml = changed.slice(0,6).map(c => `
+                    <div>
+                        <div style="font-size:0.72rem;text-transform:uppercase;color:var(--text-secondary);font-weight:600;letter-spacing:0.5px;margin-bottom:0.3rem;">${c.key.replace(/_/g,' ')}</div>
+                        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+                            <span style="background:rgba(220,38,38,0.07);color:#b91c1c;border-radius:4px;padding:0.15rem 0.4rem;font-size:0.78rem;text-decoration:line-through;">${c.old||'—'}</span>
+                            <i class="fa-solid fa-arrow-right" style="font-size:0.65rem;color:var(--text-secondary);"></i>
+                            <span style="background:rgba(5,150,105,0.07);color:#059669;border-radius:4px;padding:0.15rem 0.4rem;font-size:0.78rem;">${c.new||'—'}</span>
+                        </div>
+                    </div>
+                `).join('');
+                return `<div class="hist-entry">
+                    <div class="hist-entry-header">
+                        <span><i class="fa-solid fa-file-pen" style="color:var(--accent-primary)"></i> ${h.project_name}</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);font-weight:400;">${new Date(h.edited_at).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.6rem;">${changesHtml||'<span style="color:var(--text-secondary);font-size:0.82rem;">No field changes detected.</span>'}</div>
+                </div>`;
+            }).join('');
+        }
+
+        async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
+    </script>
+</body>
+</html>

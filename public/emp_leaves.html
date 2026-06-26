@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaves & Holidays | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        body { display:flex; flex-direction:row; min-height:100vh; overflow-x:hidden; }
+        body::before { display:none; }
+        .sidebar { width:240px; min-height:100vh; flex-shrink:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); border-right:1px solid var(--border-color); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; z-index:50; }
+        .dark-theme .sidebar { background:rgba(15,23,42,0.92); }
+        .sidebar-brand { padding:1.5rem 1.25rem 1rem; font-size:1.25rem; font-weight:700; letter-spacing:-0.5px; border-bottom:1px solid var(--border-color); }
+        .sidebar-brand small { display:block; font-size:0.7rem; font-weight:500; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; margin-top:0.15rem; }
+        .sidebar-nav { padding:1rem 0.75rem; flex:1; }
+        .sidebar-nav a { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.85rem; border-radius:10px; font-size:0.9rem; font-weight:500; color:var(--text-secondary); text-decoration:none; margin-bottom:0.25rem; transition:all 0.2s; }
+        .sidebar-nav a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .sidebar-nav a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); font-weight:600; box-shadow:inset 3px 0 0 var(--accent-primary); }
+        .sidebar-nav a i { width:18px; text-align:center; }
+        .sidebar-footer { padding:1rem 0.75rem; border-top:1px solid var(--border-color); }
+        .sidebar-user { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.5rem; margin-bottom:0.5rem; }
+        .sidebar-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-gradient); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.85rem; flex-shrink:0; overflow:hidden; }
+        .sidebar-avatar img { width:100%; height:100%; object-fit:cover; }
+        .sidebar-user-name { font-size:0.85rem; font-weight:600; }
+        .sidebar-user-role { font-size:0.7rem; color:var(--text-secondary); }
+
+        .page-wrapper { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 2rem; background:rgba(255,255,255,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border-color); position:sticky; top:0; z-index:40; }
+        .dark-theme .topbar { background:rgba(17,24,39,0.85); }
+        .topbar-title { font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:0.5rem; }
+        .page-content { flex:1; padding:1.75rem 2rem 2rem; }
+
+        .sub-tabs { display:flex; gap:0.4rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .tab-btn { padding:0.45rem 1rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); background:none; border:1px solid var(--border-color); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; }
+        .tab-btn:hover { background:rgba(79,70,229,0.06); color:var(--accent-primary); border-color:rgba(79,70,229,0.2); }
+        .tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+
+        /* Leave balance widget */
+        .balance-widget { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; margin-bottom:1.5rem; }
+        .balance-card { padding:1.5rem; border-radius:var(--border-radius); text-align:center; position:relative; overflow:hidden; }
+        .balance-card::after { content:''; position:absolute; bottom:-20px; right:-20px; width:80px; height:80px; border-radius:50%; background:currentColor; opacity:0.06; }
+        .balance-total { background:rgba(79,70,229,0.06); border:1px solid rgba(79,70,229,0.12); }
+        .balance-used  { background:rgba(220,38,38,0.05); border:1px solid rgba(220,38,38,0.12); }
+        .balance-left  { background:rgba(5,150,105,0.06); border:1px solid rgba(5,150,105,0.12); }
+        .balance-num { font-size:2.5rem; font-weight:700; letter-spacing:-1px; }
+        .balance-num.blue { color:var(--accent-primary); }
+        .balance-num.red  { color:var(--danger); }
+        .balance-num.green{ color:var(--success); }
+        .balance-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; font-weight:600; color:var(--text-secondary); margin-top:0.3rem; }
+
+        /* Progress bar */
+        .leave-progress { height:8px; border-radius:50px; background:rgba(0,0,0,0.06); margin:1rem 0; overflow:hidden; }
+        .dark-theme .leave-progress { background:rgba(255,255,255,0.08); }
+        .leave-bar { height:100%; border-radius:50px; background:var(--accent-gradient); transition:width 0.6s ease; }
+
+        /* Leave history table */
+        .lv-table { width:100%; border-collapse:collapse; }
+        .lv-table th,.lv-table td { padding:0.9rem 1rem; text-align:left; border-bottom:1px solid var(--border-color); font-size:0.87rem; }
+        .lv-table th { background:rgba(241,245,249,0.85); font-weight:600; font-size:0.73rem; text-transform:uppercase; letter-spacing:1px; }
+        .dark-theme .lv-table th { background:rgba(17,24,39,0.85); }
+
+        /* Status badges */
+        .badge-pending  { background:rgba(217,119,6,0.1); color:#d97706; border:1px solid rgba(217,119,6,0.2); }
+        .badge-approved { background:rgba(5,150,105,0.1); color:#059669; border:1px solid rgba(5,150,105,0.2); }
+        .badge-rejected { background:rgba(220,38,38,0.1); color:#dc2626; border:1px solid rgba(220,38,38,0.2); }
+
+        /* Holiday card */
+        .holiday-card { display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:0.65rem; transition:all 0.2s; }
+        .holiday-card:hover { border-color:rgba(79,70,229,0.2); box-shadow:0 4px 12px rgba(79,70,229,0.06); }
+        .holiday-card.past { opacity:0.55; }
+        .holiday-date-box { width:56px; height:56px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--accent-gradient); color:white; flex-shrink:0; }
+        .holiday-date-box .date-num { font-size:1.3rem; font-weight:700; line-height:1; }
+        .holiday-date-box .date-mon { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+        .holiday-info { flex:1; min-width:0; }
+        .holiday-name { font-weight:600; margin-bottom:0.2rem; }
+        .holiday-meta { font-size:0.8rem; color:var(--text-secondary); }
+        .holiday-type-badge { font-size:0.72rem; padding:0.2rem 0.6rem; border-radius:50px; font-weight:600; }
+        .ht-national { background:rgba(79,70,229,0.1); color:var(--accent-primary); }
+        .ht-company  { background:rgba(5,150,105,0.1); color:#059669; }
+        .ht-optional { background:rgba(217,119,6,0.1); color:#d97706; }
+
+        .alert-msg { padding:0.85rem 1.1rem; border-radius:8px; font-size:0.88rem; display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; }
+        .alert-err { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
+        .alert-ok  { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves" class="active"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div><div class="sidebar-user-name" id="sb-name">…</div><div class="sidebar-user-role">Employee</div></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.4rem;" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i> Toggle Theme</button>
+            <button class="btn btn-outline btn-sm" style="width:100%;color:var(--danger);border-color:rgba(220,38,38,0.2);" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+        </div>
+    </aside>
+
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-umbrella-beach" style="color:var(--accent-primary)"></i> Leave Management & Holidays</div>
+        </header>
+        <div class="page-content fade-in">
+            <div class="sub-tabs">
+                <button class="tab-btn active" onclick="switchTab('apply',this)"><i class="fa-solid fa-paper-plane"></i> Apply Leave</button>
+                <button class="tab-btn" onclick="switchTab('history',this)"><i class="fa-solid fa-clock-rotate-left"></i> My History</button>
+                <button class="tab-btn" onclick="switchTab('holidays',this)"><i class="fa-solid fa-star"></i> Holidays</button>
+            </div>
+
+            <!-- APPLY LEAVE TAB -->
+            <div id="tab-apply" class="tab-content active">
+                <!-- Balance Widget -->
+                <div class="balance-widget glass-panel" style="padding:1.5rem;margin-bottom:1.5rem;">
+                    <div class="balance-card balance-total" style="border-radius:12px;">
+                        <div class="balance-num blue" id="bal-total">—</div>
+                        <div class="balance-label">Total Annual Leaves</div>
+                    </div>
+                    <div class="balance-card balance-used" style="border-radius:12px;">
+                        <div class="balance-num red" id="bal-used">—</div>
+                        <div class="balance-label">Leaves Used</div>
+                    </div>
+                    <div class="balance-card balance-left" style="border-radius:12px;">
+                        <div class="balance-num green" id="bal-rem">—</div>
+                        <div class="balance-label">Remaining</div>
+                    </div>
+                </div>
+                <div class="glass-panel" style="padding:0 1.5rem 0.5rem;margin-bottom:1.5rem;">
+                    <div style="font-size:0.8rem;color:var(--text-secondary);padding:0.75rem 0 0.4rem;">Leave usage this year</div>
+                    <div class="leave-progress"><div class="leave-bar" id="leave-bar" style="width:0%"></div></div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-secondary);padding-bottom:0.75rem;">
+                        <span>0</span><span id="bal-year">2025</span><span id="bal-total-end">12</span>
+                    </div>
+                </div>
+
+                <!-- Apply Form -->
+                <div class="glass-panel" style="padding:1.75rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-paper-plane" style="color:var(--accent-primary)"></i> Apply for Leave</h3>
+                    <div id="apply-err" style="display:none;" class="alert-msg alert-err"><i class="fa-solid fa-circle-xmark"></i><span id="apply-err-text"></span></div>
+                    <div id="apply-ok" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="apply-ok-text"></span></div>
+                    <form id="leave-form" style="max-width:600px;">
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label class="required">Leave Type</label>
+                                <select name="leave_type" class="form-control" required>
+                                    <option value="">Select type…</option>
+                                    <option>Annual</option><option>Sick Leave</option>
+                                    <option>Casual Leave</option><option>Unpaid Leave</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex;gap:0.5rem;align-items:center;">
+                                <div style="flex:1;">
+                                    <label class="required">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control" required onchange="calcDays()">
+                                </div>
+                                <div style="flex:1;">
+                                    <label class="required">End Date</label>
+                                    <input type="date" name="end_date" class="form-control" required onchange="calcDays()">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="days-preview" style="display:none;margin-bottom:1rem;padding:0.6rem 1rem;border-radius:8px;background:rgba(79,70,229,0.06);border:1px solid rgba(79,70,229,0.1);font-size:0.88rem;font-weight:600;color:var(--accent-primary);">
+                            <i class="fa-solid fa-calendar-days"></i> <span id="days-count">0</span> day(s) selected
+                        </div>
+                        <div class="form-group">
+                            <label class="required">Reason</label>
+                            <textarea name="reason" class="form-control" rows="3" placeholder="Provide a brief reason for your leave request…" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit Leave Request</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div id="tab-history" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary)"></i> My Leave History</h3>
+                    <div class="table-container">
+                        <table class="lv-table">
+                            <thead>
+                                <tr><th>Leave Type</th><th>Start Date</th><th>End Date</th><th>Days</th><th>Reason</th><th>Status</th></tr>
+                            </thead>
+                            <tbody id="leave-history-body">
+                                <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary);">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HOLIDAYS TAB -->
+            <div id="tab-holidays" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-star" style="color:var(--warning)"></i> Holiday Calendar</h3>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <button class="tab-btn active" id="hf-all" onclick="filterHolidays('',this)">All</button>
+                            <button class="tab-btn" onclick="filterHolidays('National',this)">National</button>
+                            <button class="tab-btn" onclick="filterHolidays('Company',this)">Company</button>
+                            <button class="tab-btn" onclick="filterHolidays('Optional',this)">Optional</button>
+                        </div>
+                    </div>
+                    <div id="holiday-list">Loading holidays…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allHolidays = [], balanceData = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) { window.location.href='/login'; return; }
+                const me = await r.json();
+                if (me.role==='Admin') { window.location.href='/admin/dashboard'; return; }
+                document.getElementById('sb-name').textContent = me.employee_name;
+            } catch(e) { window.location.href='/login'; return; }
+
+            await loadBalance();
+            await loadHistory();
+            await loadHolidays();
+        });
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            btn.classList.add('active');
+            // Re-activate holiday filter buttons
+            if (name === 'holidays') {
+                document.getElementById('hf-all').classList.add('active');
+            }
+        }
+
+        async function loadBalance() {
+            const res = await fetch('/api/employee/leave/balance');
+            if (!res.ok) return;
+            balanceData = await res.json();
+            document.getElementById('bal-total').textContent = balanceData.total;
+            document.getElementById('bal-used').textContent = balanceData.used;
+            document.getElementById('bal-rem').textContent = balanceData.remaining;
+            document.getElementById('bal-year').textContent = balanceData.year || new Date().getFullYear();
+            document.getElementById('bal-total-end').textContent = balanceData.total;
+            const pct = balanceData.total > 0 ? Math.round(balanceData.used / balanceData.total * 100) : 0;
+            document.getElementById('leave-bar').style.width = pct + '%';
+        }
+
+        async function loadHistory() {
+            const res = await fetch('/api/employee/leave/history');
+            if (!res.ok) return;
+            const data = await res.json();
+            const tbody = document.getElementById('leave-history-body');
+            if (data.leaves.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-secondary);">No leave requests yet.</td></tr>';
+                return;
+            }
+            const statusMap = { Pending:'badge-pending', Approved:'badge-approved', Rejected:'badge-rejected' };
+            tbody.innerHTML = data.leaves.map(l => `<tr>
+                <td style="font-weight:600;">${l.leave_type}</td>
+                <td>${l.start_date}</td><td>${l.end_date}</td>
+                <td style="text-align:center;">${l.days_count||'—'}</td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.reason}">${l.reason}</td>
+                <td><span class="badge ${statusMap[l.status]||'badge-pending'}">${l.status}</span></td>
+            </tr>`).join('');
+        }
+
+        async function loadHolidays() {
+            const res = await fetch('/api/employee/holidays');
+            if (!res.ok) return;
+            const data = await res.json();
+            allHolidays = data.holidays;
+            renderHolidays(allHolidays);
+        }
+
+        function filterHolidays(type, btn) {
+            document.querySelectorAll('#tab-holidays .tab-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            renderHolidays(type ? allHolidays.filter(h=>h.holiday_type===type) : allHolidays);
+        }
+
+        function renderHolidays(list) {
+            const container = document.getElementById('holiday-list');
+            if (list.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-secondary);">No holidays found.</div>';
+                return;
+            }
+            const typeMap = { National:'ht-national', Company:'ht-company', Optional:'ht-optional' };
+            container.innerHTML = list.map(h => {
+                const d = new Date(h.date);
+                const mon = d.toLocaleDateString('en-IN', {month:'short'}).toUpperCase();
+                const num = d.getDate();
+                const dayName = d.toLocaleDateString('en-IN', {weekday:'long'});
+                const isPast = h.is_past;
+                return `<div class="holiday-card ${isPast?'past':''}">
+                    <div class="holiday-date-box">
+                        <div class="date-num">${num}</div>
+                        <div class="date-mon">${mon}</div>
+                    </div>
+                    <div class="holiday-info">
+                        <div class="holiday-name">${h.name}</div>
+                        <div class="holiday-meta">${dayName} · ${h.date}${h.description ? ' · ' + h.description : ''}</div>
+                    </div>
+                    <span class="holiday-type-badge ${typeMap[h.holiday_type]||'ht-company'}">${h.holiday_type}</span>
+                    ${isPast ? '<span style="font-size:0.72rem;color:var(--text-secondary);"><i class="fa-solid fa-check"></i> Past</span>' : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function calcDays() {
+            const s = document.querySelector('[name="start_date"]').value;
+            const e = document.querySelector('[name="end_date"]').value;
+            if (s && e) {
+                const days = Math.ceil((new Date(e) - new Date(s)) / 86400000) + 1;
+                if (days > 0) {
+                    document.getElementById('days-count').textContent = days;
+                    document.getElementById('days-preview').style.display = 'block';
+                }
+            }
+        }
+
+        document.getElementById('leave-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const body = Object.fromEntries(fd.entries());
+            document.getElementById('apply-err').style.display='none';
+            document.getElementById('apply-ok').style.display='none';
+            const res = await fetch('/api/employee/leave/apply', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('apply-ok-text').textContent = data.message;
+                document.getElementById('apply-ok').style.display='flex';
+                e.target.reset();
+                document.getElementById('days-preview').style.display='none';
+                await loadBalance();
+                await loadHistory();
+            } else {
+                document.getElementById('apply-err-text').textContent = data.detail || 'Error submitting leave.';
+                document.getElementById('apply-err').style.display='flex';
+            }
+        });
+
+        async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
+    </script>
+</body>
+</html>

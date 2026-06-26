@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance & To-Do | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        body { display: flex; flex-direction: row; min-height: 100vh; overflow-x: hidden; }
+        body::before { display: none; }
+
+        /* Sidebar (shared) */
+        .sidebar { width:240px; min-height:100vh; flex-shrink:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); border-right:1px solid var(--border-color); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; z-index:50; transition:background 0.3s ease; }
+        .dark-theme .sidebar { background:rgba(15,23,42,0.92); }
+        .sidebar-brand { padding:1.5rem 1.25rem 1rem; font-size:1.25rem; font-weight:700; letter-spacing:-0.5px; border-bottom:1px solid var(--border-color); }
+        .sidebar-brand small { display:block; font-size:0.7rem; font-weight:500; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; margin-top:0.15rem; }
+        .sidebar-nav { padding:1rem 0.75rem; flex:1; }
+        .sidebar-nav a { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.85rem; border-radius:10px; font-size:0.9rem; font-weight:500; color:var(--text-secondary); text-decoration:none; margin-bottom:0.25rem; transition:all 0.2s ease; }
+        .sidebar-nav a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .sidebar-nav a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); font-weight:600; box-shadow:inset 3px 0 0 var(--accent-primary); }
+        .sidebar-nav a i { width:18px; text-align:center; font-size:0.95rem; }
+        .sidebar-footer { padding:1rem 0.75rem; border-top:1px solid var(--border-color); }
+        .sidebar-user { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.5rem; margin-bottom:0.5rem; }
+        .sidebar-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-gradient); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.85rem; flex-shrink:0; overflow:hidden; }
+        .sidebar-avatar img { width:100%; height:100%; object-fit:cover; }
+        .sidebar-user-name { font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sidebar-user-role { font-size:0.7rem; color:var(--text-secondary); }
+
+        .page-wrapper { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 2rem; background:rgba(255,255,255,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border-color); position:sticky; top:0; z-index:40; }
+        .dark-theme .topbar { background:rgba(17,24,39,0.85); }
+        .topbar-title { font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:0.5rem; }
+        .page-content { flex:1; padding:1.75rem 2rem 2rem; }
+
+        /* Sub-tabs */
+        .sub-tabs { display:flex; gap:0.4rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+        .tab-btn { padding:0.45rem 1rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); background:none; border:1px solid var(--border-color); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; }
+        .tab-btn:hover { background:rgba(79,70,229,0.06); color:var(--accent-primary); border-color:rgba(79,70,229,0.2); }
+        .tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+
+        /* Punch card */
+        .punch-card { max-width:500px; margin:0 auto; text-align:center; }
+        .punch-status { font-size:1.1rem; font-weight:600; margin:1rem 0; }
+        .gps-info { font-size:0.8rem; color:var(--text-secondary); padding:0.5rem 1rem; border-radius:8px; background:rgba(0,0,0,0.03); border:1px solid var(--border-color); margin-bottom:1rem; }
+        .dark-theme .gps-info { background:rgba(255,255,255,0.03); }
+        .time-display { font-size:3rem; font-weight:700; letter-spacing:-2px; margin:1.25rem 0; color:var(--accent-primary); }
+        .att-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
+        .att-chip { padding:1rem; border-radius:12px; background:rgba(0,0,0,0.03); border:1px solid var(--border-color); }
+        .dark-theme .att-chip { background:rgba(255,255,255,0.04); }
+        .att-chip span { display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.8px; font-weight:600; margin-bottom:0.4rem; }
+        .att-chip strong { font-size:1.2rem; }
+        .btn-punch-in  { background:linear-gradient(135deg,#059669,#10b981); color:white; box-shadow:0 4px 15px rgba(5,150,105,0.25); }
+        .btn-punch-in:hover  { transform:translateY(-2px); box-shadow:0 8px 25px rgba(5,150,105,0.4); }
+        .btn-punch-out { background:linear-gradient(135deg,#dc2626,#ef4444); color:white; box-shadow:0 4px 15px rgba(220,38,38,0.2); }
+        .btn-punch-out:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(220,38,38,0.35); }
+
+        /* Half-day reason modal */
+        .half-day-modal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); backdrop-filter:blur(6px); z-index:999; align-items:center; justify-content:center; }
+        .half-day-modal.active { display:flex; }
+        .half-day-box { background:var(--bg-glass); border:1px solid var(--border-color); border-radius:var(--border-radius); padding:2rem; max-width:420px; width:100%; box-shadow:var(--shadow-soft); animation:slideUp 0.3s ease; }
+
+        /* Priority badges */
+        .badge-low    { background:rgba(5,150,105,0.1); color:#059669; border:1px solid rgba(5,150,105,0.2); }
+        .badge-medium { background:rgba(217,119,6,0.1); color:#d97706; border:1px solid rgba(217,119,6,0.2); }
+        .badge-high   { background:rgba(220,38,38,0.1); color:#dc2626; border:1px solid rgba(220,38,38,0.2); }
+        .badge-done-status { background:rgba(5,150,105,0.1); color:#059669; }
+        .badge-ongoing-status { background:rgba(37,99,235,0.1); color:#2563eb; }
+        .badge-pending-status { background:rgba(217,119,6,0.1); color:#d97706; }
+
+        /* Task cards */
+        .task-card { padding:1rem 1.25rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:0.75rem; display:flex; align-items:flex-start; gap:1rem; transition:all 0.2s ease; }
+        .task-card:hover { border-color:rgba(79,70,229,0.2); box-shadow:0 4px 15px rgba(79,70,229,0.06); }
+        .task-card.overdue { border-left:3px solid var(--danger); }
+        .task-card.due-today { border-left:3px solid var(--warning); }
+        .task-meta { flex:1; min-width:0; }
+        .task-name { font-weight:600; margin-bottom:0.25rem; }
+        .task-sub { font-size:0.8rem; color:var(--text-secondary); }
+
+        /* History table */
+        .hist-table { width:100%; border-collapse:collapse; }
+        .hist-table th,.hist-table td { padding:0.9rem 1rem; text-align:left; border-bottom:1px solid var(--border-color); font-size:0.88rem; }
+        .hist-table th { background:rgba(241,245,249,0.8); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; }
+        .dark-theme .hist-table th { background:rgba(17,24,39,0.7); }
+
+        /* Deadline highlight */
+        .dl-overdue { border-left:3px solid var(--danger); }
+        .dl-today   { border-left:3px solid var(--warning); }
+        .dl-tomorrow{ border-left:3px solid var(--info); }
+
+        .alert-msg { padding:1rem 1.25rem; border-radius:10px; font-size:0.9rem; display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; }
+        .alert-err  { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
+        .alert-ok   { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance" class="active"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div>
+                    <div class="sidebar-user-name" id="sb-name">Loading…</div>
+                    <div class="sidebar-user-role">Employee</div>
+                </div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.4rem;" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i> Toggle Theme</button>
+            <button class="btn btn-outline btn-sm" style="width:100%;color:var(--danger);border-color:rgba(220,38,38,0.2);" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Attendance & To-Do</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary);" id="today-date"></div>
+        </header>
+        <div class="page-content fade-in">
+
+            <!-- Sub-tabs -->
+            <div class="sub-tabs">
+                <button class="tab-btn active" onclick="switchTab('attendance', this)"><i class="fa-solid fa-fingerprint"></i> Attendance</button>
+                <button class="tab-btn" onclick="switchTab('todo', this)"><i class="fa-solid fa-list-check"></i> To-Do List</button>
+                <button class="tab-btn" onclick="switchTab('deadlines', this)"><i class="fa-solid fa-triangle-exclamation"></i> Upcoming Deadlines</button>
+                <button class="tab-btn" onclick="switchTab('history', this)"><i class="fa-solid fa-calendar-days"></i> Attendance History</button>
+            </div>
+
+            <!-- === ATTENDANCE TAB === -->
+            <div id="tab-attendance" class="tab-content active">
+                <div class="glass-panel" style="padding:2rem;">
+                    <div class="punch-card">
+                        <h3 style="margin-bottom:0.5rem;"><i class="fa-solid fa-location-dot" style="color:var(--accent-primary)"></i> GPS Attendance</h3>
+                        <p style="color:var(--text-secondary);font-size:0.87rem;margin-bottom:1rem;">Your location is verified before punch-in/out. Ensure location access is enabled.</p>
+
+                        <div id="gps-status" class="gps-info">
+                            <i class="fa-solid fa-satellite-dish"></i> Detecting your location…
+                        </div>
+
+                        <div id="alert-box" style="display:none;" class="alert-msg alert-err">
+                            <i class="fa-solid fa-circle-xmark"></i> <span id="alert-text"></span>
+                        </div>
+                        <div id="success-box" style="display:none;" class="alert-msg alert-ok">
+                            <i class="fa-solid fa-circle-check"></i> <span id="success-text"></span>
+                        </div>
+
+                        <div class="time-display" id="live-clock">--:--:--</div>
+
+                        <div class="att-grid">
+                            <div class="att-chip">
+                                <span><i class="fa-solid fa-right-to-bracket"></i> Punch In</span>
+                                <strong id="today-in">—</strong>
+                            </div>
+                            <div class="att-chip">
+                                <span><i class="fa-solid fa-right-from-bracket"></i> Punch Out</span>
+                                <strong id="today-out">—</strong>
+                            </div>
+                        </div>
+
+                        <div class="att-chip" style="margin-bottom:1.25rem;text-align:center;">
+                            <span><i class="fa-solid fa-stopwatch"></i> Working Hours</span>
+                            <strong id="today-hours" style="font-size:1.4rem;">—</strong>
+                            <span id="day-type-label" style="margin-top:0.25rem;"></span>
+                        </div>
+
+                        <div style="display:flex;gap:1rem;">
+                            <button id="btn-punchin" class="btn btn-punch-in" style="flex:1;" onclick="doPunchIn()">
+                                <i class="fa-solid fa-right-to-bracket"></i> Punch In
+                            </button>
+                            <button id="btn-punchout" class="btn btn-punch-out" style="flex:1;" onclick="initPunchOut()">
+                                <i class="fa-solid fa-right-from-bracket"></i> Punch Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- === TO-DO TAB === -->
+            <div id="tab-todo" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-list-check" style="color:var(--accent-primary)"></i> My Tasks</h3>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <select id="filter-status" class="form-control" style="width:auto;padding:0.4rem 0.8rem;font-size:0.82rem;" onchange="renderTasks()">
+                                <option value="">All Status</option>
+                                <option value="Not Started">Not Started</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="Hold">Hold</option>
+                                <option value="Done">Done</option>
+                            </select>
+                            <select id="filter-priority" class="form-control" style="width:auto;padding:0.4rem 0.8rem;font-size:0.82rem;" onchange="renderTasks()">
+                                <option value="">All Priority</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="task-list">Loading tasks…</div>
+                </div>
+            </div>
+
+            <!-- === DEADLINES TAB === -->
+            <div id="tab-deadlines" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Upcoming Deadlines</h3>
+                    <div id="dl-overdue-section" style="display:none;">
+                        <h4 style="color:var(--danger);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-fire"></i> Overdue</h4>
+                        <div id="dl-overdue"></div>
+                    </div>
+                    <div id="dl-today-section" style="display:none;margin-top:1rem;">
+                        <h4 style="color:var(--warning);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-clock"></i> Due Today</h4>
+                        <div id="dl-today"></div>
+                    </div>
+                    <div id="dl-upcoming-section" style="display:none;margin-top:1rem;">
+                        <h4 style="color:var(--info);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-calendar-check"></i> Upcoming</h4>
+                        <div id="dl-upcoming"></div>
+                    </div>
+                    <div id="dl-empty" style="color:var(--text-secondary);text-align:center;padding:3rem 0;">
+                        <i class="fa-solid fa-check-circle" style="font-size:2.5rem;color:var(--success);margin-bottom:0.75rem;display:block;"></i>
+                        No upcoming deadlines. Great job! 🎉
+                    </div>
+                </div>
+            </div>
+
+            <!-- === ATTENDANCE HISTORY TAB === -->
+            <div id="tab-history" class="tab-content">
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+                        <h3 style="margin:0;"><i class="fa-solid fa-calendar-days" style="color:var(--accent-primary)"></i> Attendance History</h3>
+                        <input type="month" id="hist-month" class="form-control" style="width:auto;" onchange="loadHistory()">
+                    </div>
+                    <div id="hist-summary" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
+                    <div class="table-container">
+                        <table class="hist-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th><th>Day</th><th>Punch In</th><th>Punch Out</th>
+                                    <th>Hours</th><th>Day Type</th><th>Status</th><th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hist-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Half-Day Reason Modal -->
+    <div id="half-day-modal" class="half-day-modal">
+        <div class="half-day-box">
+            <h3 style="margin-bottom:0.5rem;"><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Half-Day Detected</h3>
+            <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1.25rem;">
+                You have worked less than 9 hours. Please provide a reason before punching out.
+            </p>
+            <div class="form-group">
+                <label class="required">Reason for Half-Day</label>
+                <textarea id="hd-reason" class="form-control" rows="3" placeholder="E.g., Medical appointment, personal emergency…"></textarea>
+            </div>
+            <div style="display:flex;gap:0.75rem;">
+                <button class="btn btn-punch-out" style="flex:1;" onclick="submitPunchOut()">
+                    <i class="fa-solid fa-right-from-bracket"></i> Punch Out
+                </button>
+                <button class="btn btn-outline" onclick="document.getElementById('half-day-modal').classList.remove('active')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLat = null, currentLon = null, allTasks = [], todayAtt = null;
+        let pendingPunchOutHours = 0;
+
+        document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+        // Live clock
+        setInterval(() => {
+            document.getElementById('live-clock').textContent = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        }, 1000);
+
+        // Set default month
+        const now = new Date();
+        document.getElementById('hist-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const meRes = await fetch('/api/auth/me');
+                if (!meRes.ok) { window.location.href = '/login'; return; }
+                const me = await meRes.json();
+                if (me.role === 'Admin') { window.location.href = '/admin/dashboard'; return; }
+                document.getElementById('sb-name').textContent = me.employee_name || '—';
+            } catch(e) { window.location.href = '/login'; return; }
+
+            detectGPS();
+            await loadAttendance();
+            await loadTasks();
+            await loadHistory();
+        });
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function detectGPS() {
+            if (!navigator.geolocation) {
+                document.getElementById('gps-status').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Geolocation not supported by this browser.';
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+                    document.getElementById('gps-status').innerHTML =
+                        `<i class="fa-solid fa-location-dot" style="color:var(--success)"></i> Location detected: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)} &nbsp;|&nbsp; Accuracy: ±${Math.round(pos.coords.accuracy)}m`;
+                },
+                err => {
+                    document.getElementById('gps-status').innerHTML =
+                        `<i class="fa-solid fa-circle-xmark" style="color:var(--warning)"></i> Location unavailable (${err.message}). Punch-in will proceed without GPS check.`;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        async function loadAttendance() {
+            const res = await fetch('/api/employee/data');
+            if (!res.ok) return;
+            const data = await res.json();
+            const att = data.attendance;
+            todayAtt = att;
+            document.getElementById('today-in').textContent = att.time_in || '—';
+            document.getElementById('today-out').textContent = att.time_out || '—';
+            document.getElementById('today-hours').textContent = att.total_hours ? `${att.total_hours} hrs` : '—';
+            if (att.day_type) {
+                document.getElementById('day-type-label').textContent = att.day_type;
+            }
+            // Disable buttons based on state
+            if (att.time_in) document.getElementById('btn-punchin').disabled = true;
+            if (att.time_out) document.getElementById('btn-punchout').disabled = true;
+        }
+
+        async function doPunchIn() {
+            showAlert('', false);
+            const btn = document.getElementById('btn-punchin');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching In…';
+            const body = { latitude: currentLat, longitude: currentLon };
+            const res = await fetch('/api/employee/attendance/punch-in', {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showAlert(data.detail || 'Punch-in failed.', true);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Punch In';
+            } else {
+                showSuccess(data.message);
+                document.getElementById('today-in').textContent = data.time_in || 'Now';
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Punched In';
+            }
+        }
+
+        async function initPunchOut() {
+            showAlert('', false);
+            // Check if hours might be < 9 — need to determine from punch-in time
+            const inStr = document.getElementById('today-in').textContent;
+            if (inStr && inStr !== '—') {
+                const inTime = new Date(); // We'll let backend compute; show modal for safety
+                // Always show modal with optional reason if punch-in happened
+                pendingPunchOutHours = 0;
+                document.getElementById('half-day-modal').classList.add('active');
+            } else {
+                showAlert('You must punch in first!', true);
+            }
+        }
+
+        async function submitPunchOut() {
+            const reason = document.getElementById('hd-reason').value.trim();
+            document.getElementById('half-day-modal').classList.remove('active');
+
+            const btn = document.getElementById('btn-punchout');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
+
+            const body = { latitude: currentLat, longitude: currentLon, half_day_reason: reason || null };
+            const res = await fetch('/api/employee/attendance/punch-out', {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (data.detail && data.detail.includes('less than a full day')) {
+                    showAlert(data.detail, true);
+                    document.getElementById('half-day-modal').classList.add('active');
+                } else {
+                    showAlert(data.detail || 'Punch-out failed.', true);
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Punch Out';
+            } else {
+                showSuccess(data.message);
+                document.getElementById('today-out').textContent = data.time_out || 'Now';
+                document.getElementById('today-hours').textContent = `${data.working_hours} hrs`;
+                document.getElementById('day-type-label').textContent = data.day_type || '';
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Punched Out';
+            }
+        }
+
+        function showAlert(msg, show) {
+            const box = document.getElementById('alert-box');
+            document.getElementById('alert-text').textContent = msg;
+            box.style.display = show ? 'flex' : 'none';
+        }
+        function showSuccess(msg) {
+            const box = document.getElementById('success-box');
+            document.getElementById('success-text').textContent = msg;
+            box.style.display = 'flex';
+            setTimeout(() => { box.style.display = 'none'; }, 4000);
+        }
+
+        async function loadTasks() {
+            const res = await fetch('/api/employee/records');
+            if (!res.ok) return;
+            const data = await res.json();
+            allTasks = data.records;
+            renderTasks();
+            renderDeadlines();
+        }
+
+        function renderTasks() {
+            const statusF = document.getElementById('filter-status').value;
+            const priorityF = document.getElementById('filter-priority').value;
+            const filtered = allTasks.filter(t => {
+                if (statusF && t.status !== statusF) return false;
+                if (priorityF && t.priority !== priorityF) return false;
+                return true;
+            });
+            const container = document.getElementById('task-list');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">No tasks found.</div>';
+                return;
+            }
+            const today = new Date().toISOString().split('T')[0];
+            container.innerHTML = filtered.map(t => {
+                const dr = t.deadline_date ? Math.ceil((new Date(t.deadline_date) - new Date()) / 86400000) : null;
+                const isOverdue = dr !== null && dr < 0 && t.status !== 'Done';
+                const isDueToday = dr === 0;
+                const priorityCls = (t.priority || '').toLowerCase();
+                const statusColors = { 'Done':'#059669','Ongoing':'#2563eb','Not Started':'#dc2626','Hold':'#d97706' };
+                const sc = statusColors[t.status] || '#64748b';
+                return `
+                <div class="task-card ${isOverdue?'overdue':isDueToday?'due-today':''}">
+                    <div style="width:4px;border-radius:4px;background:${sc};flex-shrink:0;align-self:stretch;"></div>
+                    <div class="task-meta">
+                        <div class="task-name">${t.project_name}</div>
+                        <div class="task-sub">${t.client_name} · ${t.editing_type || ''}</div>
+                        ${t.task_description ? `<div class="task-sub" style="margin-top:0.2rem;">${t.task_description.slice(0,80)}…</div>` : ''}
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;flex-shrink:0;">
+                        <span class="badge badge-${priorityCls}">${t.priority}</span>
+                        ${t.deadline_date ? `<span style="font-size:0.75rem;color:${isOverdue?'var(--danger)':isDueToday?'var(--warning)':'var(--text-secondary)'};">
+                            <i class="fa-solid fa-calendar"></i> ${t.deadline_date}</span>` : ''}
+                        <select onchange="updateStatus(${t.id}, this.value)" class="form-control" style="padding:0.3rem 0.5rem;font-size:0.78rem;width:auto;">
+                            <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
+                            <option ${t.status==='Ongoing'?'selected':''}>Ongoing</option>
+                            <option ${t.status==='Hold'?'selected':''}>Hold</option>
+                            <option ${t.status==='Done'?'selected':''}>Done</option>
+                        </select>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function updateStatus(id, status) {
+            const res = await fetch(`/api/employee/task/${id}/status`, {
+                method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status})
+            });
+            if (res.ok) {
+                const idx = allTasks.findIndex(t => t.id === id);
+                if (idx !== -1) allTasks[idx].status = status;
+            }
+        }
+
+        function renderDeadlines() {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const tmrw = new Date(today); tmrw.setDate(tmrw.getDate()+1);
+
+            const overdue = [], dueToday = [], upcoming = [];
+            allTasks.forEach(t => {
+                if (!t.deadline_date || t.status === 'Done') return;
+                const dl = new Date(t.deadline_date); dl.setHours(0,0,0,0);
+                if (dl < today) overdue.push(t);
+                else if (dl.getTime() === today.getTime()) dueToday.push(t);
+                else upcoming.push(t);
+            });
+
+            const renderCard = (t, cls) => {
+                const dl = t.deadline_date;
+                return `<div class="task-card ${cls}" style="margin-bottom:0.6rem;">
+                    <i class="fa-solid fa-calendar-days" style="color:var(--accent-primary);flex-shrink:0;margin-top:0.15rem;"></i>
+                    <div class="task-meta">
+                        <div class="task-name">${t.project_name}</div>
+                        <div class="task-sub">${t.client_name} · Deadline: ${dl}</div>
+                    </div>
+                    <span class="badge badge-${(t.priority||'').toLowerCase()}">${t.priority}</span>
+                </div>`;
+            };
+
+            document.getElementById('dl-empty').style.display = (overdue.length+dueToday.length+upcoming.length === 0) ? 'block' : 'none';
+            if (overdue.length) { document.getElementById('dl-overdue-section').style.display='block'; document.getElementById('dl-overdue').innerHTML=overdue.map(t=>renderCard(t,'overdue')).join(''); }
+            if (dueToday.length) { document.getElementById('dl-today-section').style.display='block'; document.getElementById('dl-today').innerHTML=dueToday.map(t=>renderCard(t,'due-today')).join(''); }
+            if (upcoming.length) { document.getElementById('dl-upcoming-section').style.display='block'; document.getElementById('dl-upcoming').innerHTML=upcoming.map(t=>renderCard(t,'upcoming')).join(''); }
+        }
+
+        async function loadHistory() {
+            const month = document.getElementById('hist-month').value;
+            const res = await fetch(`/api/employee/attendance/history?month=${month}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            // Summary
+            const s = data.summary;
+            document.getElementById('hist-summary').innerHTML = `
+                <span class="badge badge-present"><i class="fa-solid fa-check"></i> Present: ${s.present}</span>
+                <span class="badge badge-halfday"><i class="fa-solid fa-clock"></i> Half Day: ${s.half_day}</span>
+                <span class="badge badge-absent"><i class="fa-solid fa-xmark"></i> Short/Absent: ${s.short_day + s.absent}</span>
+            `;
+            const tbody = document.getElementById('hist-body');
+            if (data.records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-secondary);">No records for this month.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.records.map(r => {
+                const d = new Date(r.date);
+                const day = d.toLocaleDateString('en-IN', {weekday:'short'});
+                const statusColors = {'Present':'#059669','Absent':'#dc2626','Half Day':'#d97706','Short Day':'#d97706','Late':'#2563eb'};
+                const sc = statusColors[r.status] || '#64748b';
+                return `<tr>
+                    <td>${r.date}</td><td>${day}</td>
+                    <td>${r.time_in||'—'}</td><td>${r.time_out||'—'}</td>
+                    <td>${r.working_hours != null ? r.working_hours+' hrs' : '—'}</td>
+                    <td>${r.day_type||'—'}</td>
+                    <td><span style="color:${sc};font-weight:600;">${r.status||'—'}</span></td>
+                    <td style="font-size:0.8rem;color:var(--text-secondary);">${r.half_day_reason||'—'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Shared badge classes
+        const badgeMap = {present:'badge-present',absent:'badge-absent','half day':'badge-halfday'};
+
+        async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
+    </script>
+</body>
+</html>

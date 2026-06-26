@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
+import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -39,7 +40,8 @@ class User(Base):
 
     records = relationship("ProductivityRecord", back_populates="user")
     attendance_records = relationship("Attendance", back_populates="user")
-    leave_requests = relationship("LeaveRequest", back_populates="user")
+    leave_requests = relationship("LeaveRequest", back_populates="user", foreign_keys="[LeaveRequest.user_id]")
+    leave_balance = relationship("LeaveBalance", back_populates="user", uselist=False)
 
 class ProductivityRecord(Base):
     __tablename__ = "productivity_records"
@@ -65,7 +67,7 @@ class ProductivityRecord(Base):
     task_description = Column(Text)
     
     harddisk_number = Column(String(100))
-    harddisk_directory = Column(String(255))
+    harddisk_directory = Column(String(255))  # UI label: "Folder Name" (optional)
     
     uploaded_to_drive = Column(Boolean, default=False)
     drive_link = Column(String(500))
@@ -79,6 +81,20 @@ class ProductivityRecord(Base):
     estimated_completion_time = Column(String(100)) # e.g. '1 day 2 hours'
 
     user = relationship("User", back_populates="records")
+    edit_history = relationship("ProductivityEditHistory", back_populates="record")
+
+class ProductivityEditHistory(Base):
+    """Audit log for all edits made to productivity records by employees."""
+    __tablename__ = "productivity_edit_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("productivity_records.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    edited_at = Column(DateTime, default=datetime.datetime.utcnow)
+    old_values = Column(Text)   # JSON string of fields before edit
+    new_values = Column(Text)   # JSON string of fields after edit
+
+    record = relationship("ProductivityRecord", back_populates="edit_history")
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -86,9 +102,15 @@ class Attendance(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     date = Column(Date, index=True)
-    status = Column(String(50)) # Present, Absent, Late
-    time_in = Column(String(50), nullable=True) # E.g., '09:00 AM'
-    time_out = Column(String(50), nullable=True) # E.g., '06:00 PM'
+    status = Column(String(50))  # Present, Absent, Late, Half Day
+    time_in = Column(String(50), nullable=True)   # e.g., '09:00 AM'
+    time_out = Column(String(50), nullable=True)  # e.g., '06:00 PM'
+    # New GPS & working hours fields
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    working_hours = Column(Float, nullable=True)          # computed on punch-out
+    day_type = Column(String(50), nullable=True)          # Full Day, Half Day, Short Day
+    half_day_reason = Column(Text, nullable=True)         # mandatory if half day
 
     user = relationship("User", back_populates="attendance_records")
 
@@ -99,8 +121,46 @@ class LeaveRequest(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     start_date = Column(Date)
     end_date = Column(Date)
-    leave_type = Column(String(100)) # e.g. Sick Leave, Casual Leave
+    leave_type = Column(String(100))  # Annual, Sick, Casual, etc.
     reason = Column(Text)
-    status = Column(String(50), default="Pending") # Pending, Approved, Rejected
+    status = Column(String(50), default="Pending")  # Pending, Approved, Rejected
+    days_count = Column(Integer, nullable=True)       # number of leave days applied
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    user = relationship("User", back_populates="leave_requests")
+    user = relationship("User", back_populates="leave_requests", foreign_keys=[user_id])
+
+class LeaveBalance(Base):
+    """Tracks each employee's annual leave allocation and usage."""
+    __tablename__ = "leave_balance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    year = Column(Integer, default=datetime.datetime.utcnow().year)
+    total_leaves = Column(Integer, default=12)
+    used_leaves = Column(Integer, default=0)
+    remaining_leaves = Column(Integer, default=12)
+
+    user = relationship("User", back_populates="leave_balance")
+
+class Holiday(Base):
+    """Holiday calendar managed by Admin."""
+    __tablename__ = "holidays"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    date = Column(Date, nullable=False)
+    day = Column(String(20))                               # e.g., Monday
+    description = Column(Text, nullable=True)
+    holiday_type = Column(String(50), default="National")  # National, Company, Optional
+    is_active = Column(Boolean, default=True)
+
+class OfficeLocation(Base):
+    """Stores the configurable office GPS location for attendance validation."""
+    __tablename__ = "office_location"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), default="Main Office")
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    radius_meters = Column(Integer, default=100)  # allowed punch-in/out radius
+    is_active = Column(Boolean, default=True)

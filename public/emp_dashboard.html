@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard | Blink Once EPS</title>
+    <meta name="description" content="Your personal productivity dashboard — track tasks, attendance, and performance.">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        /* ── Sidebar Layout ── */
+        body { display: flex; flex-direction: row; min-height: 100vh; overflow-x: hidden; }
+        body::before { display: none; }
+
+        .sidebar {
+            width: 240px; min-height: 100vh; flex-shrink: 0;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+            position: sticky; top: 0; height: 100vh;
+            overflow-y: auto; z-index: 50;
+            transition: background 0.3s ease;
+        }
+        .dark-theme .sidebar { background: rgba(15,23,42,0.92); }
+
+        .sidebar-brand {
+            padding: 1.5rem 1.25rem 1rem;
+            font-size: 1.25rem; font-weight: 700; letter-spacing: -0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .sidebar-brand small {
+            display: block; font-size: 0.7rem; font-weight: 500;
+            color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase;
+            margin-top: 0.15rem;
+        }
+
+        .sidebar-nav { padding: 1rem 0.75rem; flex: 1; }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.7rem 0.85rem; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);
+            text-decoration: none; margin-bottom: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        .sidebar-nav a:hover { background: rgba(79,70,229,0.08); color: var(--accent-primary); }
+        .sidebar-nav a.active {
+            background: rgba(79,70,229,0.12); color: var(--accent-primary);
+            font-weight: 600; box-shadow: inset 3px 0 0 var(--accent-primary);
+        }
+        .sidebar-nav a i { width: 18px; text-align: center; font-size: 0.95rem; }
+
+        .sidebar-footer {
+            padding: 1rem 0.75rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .sidebar-user {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.6rem 0.5rem; margin-bottom: 0.5rem;
+        }
+        .sidebar-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--accent-gradient); display: flex;
+            align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+            overflow: hidden;
+        }
+        .sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .sidebar-user-info { flex: 1; min-width: 0; }
+        .sidebar-user-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-user-role { font-size: 0.7rem; color: var(--text-secondary); }
+
+        /* ── Main Area ── */
+        .page-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.9rem 2rem;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky; top: 0; z-index: 40;
+        }
+        .dark-theme .topbar { background: rgba(17,24,39,0.85); }
+        .topbar-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .topbar-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+        .page-content { flex: 1; padding: 1.75rem 2rem 2rem; overflow-x: hidden; }
+        @media (max-width: 900px) { .page-content { padding: 1rem; } }
+
+        /* ── Welcome Banner ── */
+        .welcome-banner {
+            background: var(--accent-gradient);
+            border-radius: var(--border-radius); padding: 1.75rem 2rem;
+            color: white; display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.75rem; position: relative; overflow: hidden;
+        }
+        .welcome-banner::before {
+            content: ''; position: absolute; top: -40px; right: -40px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }
+        .welcome-banner::after {
+            content: ''; position: absolute; bottom: -60px; right: 80px;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+        }
+        .welcome-text h2 { color: white; margin-bottom: 0.3rem; font-size: 1.5rem; }
+        .welcome-text p { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
+        .welcome-chips { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+        .welcome-chip {
+            padding: 0.3rem 0.8rem; border-radius: 50px;
+            background: rgba(255,255,255,0.15); font-size: 0.78rem;
+            color: white; display: flex; align-items: center; gap: 0.35rem;
+        }
+        .welcome-avatar {
+            width: 70px; height: 70px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+            overflow: hidden; flex-shrink: 0;
+            background: rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 700; color: white;
+        }
+        .welcome-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* ── Stats Grid ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 700px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .mini-stat {
+            padding: 1.25rem; border-radius: var(--border-radius);
+            background: var(--bg-glass); border: 1px solid var(--border-color);
+            backdrop-filter: blur(12px); box-shadow: var(--shadow-soft);
+            display: flex; flex-direction: column; gap: 0.4rem;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            position: relative; overflow: hidden;
+        }
+        .mini-stat:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(79,70,229,0.1); }
+        .mini-stat::after {
+            content: ''; position: absolute; top: 0; right: 0;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-primary), transparent 70%);
+            opacity: 0.06; transform: translate(30%, -30%);
+        }
+        .mini-stat-icon { font-size: 1.3rem; margin-bottom: 0.3rem; }
+        .mini-stat-val { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+        .mini-stat-label { font-size: 0.73rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+        /* ── Mid Grid ── */
+        .mid-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.75rem; }
+        @media (max-width: 900px) { .mid-grid { grid-template-columns: 1fr; } }
+
+        /* Attendance widget */
+        .att-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+        .time-chip { padding: 0.75rem 1rem; border-radius: 10px; background: rgba(0,0,0,0.03); border: 1px solid var(--border-color); }
+        .dark-theme .time-chip { background: rgba(255,255,255,0.04); }
+        .time-chip span { display: block; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.25rem; font-weight: 600; }
+        .time-chip strong { font-size: 1.1rem; }
+
+        /* Status dot */
+        .status-row { display: flex; align-items: center; gap: 0.75rem; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .dot-present { background: var(--success); box-shadow: 0 0 6px rgba(5,150,105,0.5); }
+        .dot-absent  { background: var(--danger);  box-shadow: 0 0 6px rgba(220,38,38,0.4); }
+        .dot-half    { background: var(--warning);  box-shadow: 0 0 6px rgba(217,119,6,0.5); }
+
+        /* ── Notifications ── */
+        .notif-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; max-height: 260px; overflow-y: auto; }
+        .notif-item { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.65rem 0.85rem; border-radius: 8px; background: rgba(79,70,229,0.04); border: 1px solid rgba(79,70,229,0.08); font-size: 0.85rem; }
+        .notif-icon { color: var(--accent-primary); font-size: 0.8rem; margin-top: 0.1rem; flex-shrink: 0; }
+
+        /* ── Bottom Grid ── */
+        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        @media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+        /* ── Performance Section ── */
+        .perf-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+        .perf-stat { padding: 0.9rem 1rem; border-radius: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); text-align: center; }
+        .dark-theme .perf-stat { background: rgba(255,255,255,0.03); }
+        .perf-val { font-size: 1.4rem; font-weight: 700; }
+        .perf-label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-top: 0.2rem; }
+
+        /* deadline items */
+        .deadline-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto; }
+        .deadline-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.85rem; }
+        .deadline-item.overdue { border-color: rgba(220,38,38,0.2); background: rgba(220,38,38,0.04); }
+        .deadline-item.today { border-color: rgba(217,119,6,0.2); background: rgba(217,119,6,0.04); }
+        .deadline-item.upcoming { border-color: rgba(37,99,235,0.15); background: rgba(37,99,235,0.03); }
+
+        /* Badges */
+        .badge-present { background: rgba(5,150,105,0.1); color: #059669; border: 1px solid rgba(5,150,105,0.2); }
+        .badge-absent  { background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
+        .badge-halfday { background: rgba(217,119,6,0.1); color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
+        .badge-notmarked { background: rgba(100,116,139,0.1); color: #64748b; border: 1px solid rgba(100,116,139,0.2); }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .section-header h3 { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span>
+            <small>Employee Portal</small>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard" class="active"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name" id="sb-name">Loading…</div>
+                    <div class="sidebar-user-role">Employee</div>
+                </div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%; margin-bottom:0.4rem;" onclick="toggleTheme()">
+                <i class="fa-solid fa-moon"></i> Toggle Theme
+            </button>
+            <button class="btn btn-outline btn-sm" style="width:100%; color:var(--danger); border-color:rgba(220,38,38,0.2);" onclick="logout()">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent-primary)"></i> Dashboard</div>
+            <div class="topbar-actions">
+                <span id="today-date" style="font-size:0.85rem; color:var(--text-secondary);"></span>
+            </div>
+        </header>
+
+        <div class="page-content fade-in">
+
+            <!-- Welcome Banner -->
+            <div class="welcome-banner">
+                <div class="welcome-text">
+                    <h2>Good <span id="greeting-time">Day</span>, <span id="emp-name">Employee</span>! 👋</h2>
+                    <p>Here's your productivity overview for today.</p>
+                    <div class="welcome-chips">
+                        <span class="welcome-chip"><i class="fa-solid fa-id-card"></i> <span id="emp-code">—</span></span>
+                        <span class="welcome-chip"><i class="fa-solid fa-building"></i> <span id="emp-dept">—</span></span>
+                        <span class="welcome-chip"><i class="fa-solid fa-briefcase"></i> <span id="emp-desig">—</span></span>
+                    </div>
+                </div>
+                <div class="welcome-avatar" id="banner-avatar">?</div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-grid">
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:var(--accent-primary)"><i class="fa-solid fa-list-check"></i></div>
+                    <div class="mini-stat-val" id="stat-assigned">—</div>
+                    <div class="mini-stat-label">Tasks Assigned</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:var(--success)"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="mini-stat-val" id="stat-completed">—</div>
+                    <div class="mini-stat-label">Completed</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:var(--warning)"><i class="fa-solid fa-hourglass-half"></i></div>
+                    <div class="mini-stat-val" id="stat-pending">—</div>
+                    <div class="mini-stat-label">Pending</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:var(--info)"><i class="fa-solid fa-clock"></i></div>
+                    <div class="mini-stat-val" id="stat-upcoming">—</div>
+                    <div class="mini-stat-label">Upcoming</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:#8b5cf6"><i class="fa-solid fa-calendar-xmark"></i></div>
+                    <div class="mini-stat-val" id="stat-leaves">—</div>
+                    <div class="mini-stat-label">Leaves Used</div>
+                </div>
+            </div>
+
+            <!-- Middle: Attendance + Notifications -->
+            <div class="mid-grid">
+                <!-- Attendance Today -->
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Today's Attendance</h3>
+                        <a href="/employee/attendance" class="btn btn-outline btn-sm">View All</a>
+                    </div>
+                    <div class="status-row mb-3">
+                        <div class="dot" id="status-dot"></div>
+                        <span id="att-status-text" style="font-weight:600;">—</span>
+                        <span class="badge" id="att-status-badge" style="margin-left:auto;">—</span>
+                    </div>
+                    <div class="att-times">
+                        <div class="time-chip">
+                            <span><i class="fa-solid fa-right-to-bracket"></i> Punch In</span>
+                            <strong id="att-in">—</strong>
+                        </div>
+                        <div class="time-chip">
+                            <span><i class="fa-solid fa-right-from-bracket"></i> Punch Out</span>
+                            <strong id="att-out">—</strong>
+                        </div>
+                    </div>
+                    <div class="time-chip" style="grid-column:1/-1; text-align:center;">
+                        <span><i class="fa-solid fa-stopwatch"></i> Working Hours Today</span>
+                        <strong id="att-hours" style="font-size:1.4rem;">—</strong>
+                    </div>
+                    <div style="margin-top:1rem; text-align:center;">
+                        <a href="/employee/attendance" class="btn btn-primary btn-sm"><i class="fa-solid fa-fingerprint"></i> Punch In / Out</a>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-bell" style="color:var(--warning)"></i> Notifications</h3>
+                        <span id="notif-count" class="badge badge-ongoing">0</span>
+                    </div>
+                    <ul class="notif-list" id="notif-list">
+                        <li class="notif-item" style="color:var(--text-secondary)">Loading…</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Bottom: Self Progress + Upcoming Deadlines -->
+            <div class="bottom-grid">
+                <!-- Self Progress -->
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-award" style="color:#8b5cf6"></i> Self Progress</h3>
+                    <div class="perf-stats">
+                        <div class="perf-stat">
+                            <div class="perf-val" id="perf-completion" style="color:var(--success)">—%</div>
+                            <div class="perf-label">Completion</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-val" id="perf-ontime" style="color:var(--info)">—%</div>
+                            <div class="perf-label">On-Time</div>
+                        </div>
+                        <div class="perf-stat">
+                            <div class="perf-val" id="perf-attendance" style="color:var(--accent-primary)">—%</div>
+                            <div class="perf-label">Attendance</div>
+                        </div>
+                    </div>
+                    <div style="text-align:center; margin-bottom:1rem;">
+                        <span style="font-size:0.8rem; color:var(--text-secondary);">Monthly Score</span>
+                        <div id="perf-score" style="font-size:2.2rem; font-weight:700; letter-spacing:-1px;">—</div>
+                        <span id="perf-label-text" style="font-size:0.8rem; font-weight:600; padding:0.2rem 0.7rem; border-radius:20px;"></span>
+                    </div>
+                    <h4 style="font-size:0.9rem; margin-bottom:0.75rem; color:var(--text-secondary);">Performance Trend</h4>
+                    <canvas id="trendChart" height="120"></canvas>
+                </div>
+
+                <!-- Upcoming Deadlines -->
+                <div class="glass-panel" style="padding:1.5rem;">
+                    <div class="section-header">
+                        <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Upcoming Deadlines</h3>
+                        <a href="/employee/attendance" class="btn btn-outline btn-sm">To-Do</a>
+                    </div>
+                    <div class="deadline-list" id="deadline-list">
+                        <div style="color:var(--text-secondary); text-align:center; padding:2rem 0;">No deadlines coming up 🎉</div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /page-content -->
+    </div><!-- /page-wrapper -->
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let trendChart = null;
+
+        // Greeting by time
+        const hr = new Date().getHours();
+        document.getElementById('greeting-time').textContent = hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening';
+        document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const meRes = await fetch('/api/auth/me');
+                if (!meRes.ok) { window.location.href = '/login'; return; }
+                const me = await meRes.json();
+                if (me.role === 'Admin') { window.location.href = '/admin/dashboard'; return; }
+            } catch(e) { window.location.href = '/login'; return; }
+
+            await loadDashboard();
+        });
+
+        async function loadDashboard() {
+            const res = await fetch('/api/employee/data');
+            if (!res.ok) return;
+            const data = await res.json();
+            const emp = data.employee;
+            const att = data.attendance;
+            const stats = data.stats;
+            const perf = data.performance;
+            const trend = data.trend;
+
+            // Sidebar + Banner
+            const initials = emp.employee_name ? emp.employee_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
+            document.getElementById('sb-name').textContent = emp.employee_name || '—';
+            const sbAv = document.getElementById('sb-avatar');
+            if (emp.photo_path) { sbAv.innerHTML = `<img src="/${emp.photo_path}" alt="avatar">`; }
+            else { sbAv.textContent = initials; }
+
+            document.getElementById('emp-name').textContent = emp.employee_name || '—';
+            document.getElementById('emp-code').textContent = emp.employee_code || '—';
+            document.getElementById('emp-dept').textContent = emp.department || '—';
+            document.getElementById('emp-desig').textContent = emp.designation || '—';
+            const bAv = document.getElementById('banner-avatar');
+            if (emp.photo_path) { bAv.innerHTML = `<img src="/${emp.photo_path}" alt="avatar" style="width:100%;height:100%;object-fit:cover;">`; }
+            else { bAv.textContent = initials; }
+
+            // Stats
+            document.getElementById('stat-assigned').textContent = stats.assigned;
+            document.getElementById('stat-completed').textContent = stats.completed;
+            document.getElementById('stat-pending').textContent = stats.pending;
+            document.getElementById('stat-upcoming').textContent = stats.upcoming;
+            document.getElementById('stat-leaves').textContent = stats.leaves_taken;
+
+            // Attendance
+            const statusMap = {
+                'Present': { cls:'dot-present', badge:'badge-present', label:'Present' },
+                'Half Day': { cls:'dot-half',    badge:'badge-halfday', label:'Half Day' },
+                'Short Day': { cls:'dot-half',   badge:'badge-halfday', label:'Short Day' },
+                'Absent':   { cls:'dot-absent',  badge:'badge-absent',  label:'Absent' },
+            };
+            const sm = statusMap[att.status] || { cls:'dot-absent', badge:'badge-notmarked', label:att.status || 'Not Marked' };
+            document.getElementById('status-dot').className = `dot ${sm.cls}`;
+            document.getElementById('att-status-text').textContent = sm.label;
+            document.getElementById('att-status-badge').className = `badge ${sm.badge}`;
+            document.getElementById('att-status-badge').textContent = sm.label;
+            document.getElementById('att-in').textContent = att.time_in || '—';
+            document.getElementById('att-out').textContent = att.time_out || '—';
+            document.getElementById('att-hours').textContent = att.total_hours ? `${att.total_hours} hrs` : '—';
+
+            // Notifications
+            const notifList = document.getElementById('notif-list');
+            notifList.innerHTML = '';
+            document.getElementById('notif-count').textContent = data.notifications.length;
+            if (data.notifications.length === 0) {
+                notifList.innerHTML = '<li class="notif-item" style="color:var(--text-secondary)">No new notifications</li>';
+            } else {
+                data.notifications.forEach(n => {
+                    notifList.innerHTML += `<li class="notif-item"><i class="fa-solid fa-circle-info notif-icon"></i>${n}</li>`;
+                });
+            }
+
+            // Performance
+            document.getElementById('perf-completion').textContent = `${perf.completion_pct}%`;
+            document.getElementById('perf-ontime').textContent = `${perf.on_time_pct}%`;
+            document.getElementById('perf-attendance').textContent = `${perf.attendance_pct}%`;
+            document.getElementById('perf-score').textContent = perf.monthly_score;
+            const scoreLabel = document.getElementById('perf-label-text');
+            if (perf.monthly_score >= 85) { scoreLabel.textContent = 'Excellent'; scoreLabel.style.background='rgba(5,150,105,0.1)'; scoreLabel.style.color='#059669'; }
+            else if (perf.monthly_score >= 70) { scoreLabel.textContent = 'Good'; scoreLabel.style.background='rgba(37,99,235,0.1)'; scoreLabel.style.color='#2563eb'; }
+            else if (perf.monthly_score >= 50) { scoreLabel.textContent = 'Average'; scoreLabel.style.background='rgba(217,119,6,0.1)'; scoreLabel.style.color='#d97706'; }
+            else { scoreLabel.textContent = 'Needs Work'; scoreLabel.style.background='rgba(220,38,38,0.1)'; scoreLabel.style.color='#dc2626'; }
+
+            // Trend Chart
+            buildTrendChart(trend.labels, trend.data);
+
+            // Deadlines
+            const dlList = document.getElementById('deadline-list');
+            const all = [...data.today_todo, ...data.upcoming_deadlines];
+            if (all.length === 0) {
+                dlList.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:2rem 0;">No upcoming deadlines 🎉</div>';
+            } else {
+                dlList.innerHTML = '';
+                all.slice(0, 8).forEach(t => {
+                    const dr = t.days_remaining;
+                    let cls = 'upcoming', tag = '';
+                    if (dr < 0) { cls = 'overdue'; tag = `<span class="badge badge-notstarted" style="font-size:0.68rem;">Overdue ${-dr}d</span>`; }
+                    else if (dr === 0) { cls = 'today'; tag = `<span class="badge badge-hold" style="font-size:0.68rem;">Due Today</span>`; }
+                    else if (dr === 1) { cls = 'upcoming'; tag = `<span class="badge badge-ongoing" style="font-size:0.68rem;">Tomorrow</span>`; }
+                    else { tag = `<span class="badge badge-ongoing" style="font-size:0.68rem;">In ${dr}d</span>`; }
+                    dlList.innerHTML += `
+                        <div class="deadline-item ${cls}">
+                            <i class="fa-solid fa-calendar-days" style="color:var(--accent-primary);flex-shrink:0;"></i>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.project_name}</div>
+                                <div style="font-size:0.75rem;color:var(--text-secondary);">${t.client_name}</div>
+                            </div>
+                            ${tag}
+                        </div>`;
+                });
+            }
+        }
+
+        function buildTrendChart(labels, data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            const isDark = document.documentElement.classList.contains('dark-theme') || document.body.classList.contains('dark-theme');
+            const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+            const tickColor = isDark ? '#94a3b8' : '#475569';
+            if (trendChart) trendChart.destroy();
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Score',
+                        data,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99,102,241,0.08)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 4,
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { color: tickColor }, grid: { color: gridColor } },
+                        x: { ticks: { color: tickColor }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>
