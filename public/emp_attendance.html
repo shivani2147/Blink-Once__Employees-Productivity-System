@@ -304,6 +304,7 @@
                 document.getElementById('sb-name').textContent = me.employee_name || '—';
             } catch(e) { window.location.href = '/login'; return; }
 
+            await loadOfficeLocation();
             detectGPS();
             await loadAttendance();
             await loadTasks();
@@ -317,24 +318,47 @@
             btn.classList.add('active');
         }
 
-        function detectGPS() {
-            if (!navigator.geolocation) {
-                document.getElementById('gps-status').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Geolocation not supported by this browser.';
-                return;
+        async function loadOfficeLocation() {
+            try {
+                const res = await fetch('/api/employee/office-location');
+                if (!res.ok) return;
+                const data = await res.json();
+                window.officeLocationName = data.name || 'your configured office';
+            } catch (e) {
+                window.officeLocationName = 'your configured office';
             }
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    currentLat = pos.coords.latitude;
-                    currentLon = pos.coords.longitude;
-                    document.getElementById('gps-status').innerHTML =
-                        `<i class="fa-solid fa-location-dot" style="color:var(--success)"></i> Location detected: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)} &nbsp;|&nbsp; Accuracy: ±${Math.round(pos.coords.accuracy)}m`;
-                },
-                err => {
-                    document.getElementById('gps-status').innerHTML =
-                        `<i class="fa-solid fa-circle-xmark" style="color:var(--warning)"></i> Location unavailable (${err.message}). Punch-in will proceed without GPS check.`;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
+        }
+
+        function detectGPS() {
+            document.getElementById('gps-status').innerHTML =
+                `<i class="fa-solid fa-location-dot" style="color:var(--accent-primary)"></i> The office location is set to ${window.officeLocationName || 'your configured office'}. Location is required before punching in or out.`;
+        }
+
+        function requestLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    showAlert('Geolocation is not supported in this browser.', true);
+                    resolve(null);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        currentLat = pos.coords.latitude;
+                        currentLon = pos.coords.longitude;
+                        document.getElementById('gps-status').innerHTML =
+                            `<i class="fa-solid fa-location-dot" style="color:var(--success)"></i> Location detected: ${currentLat.toFixed(5)}, ${currentLon.toFixed(5)} &nbsp;|&nbsp; Accuracy: ±${Math.round(pos.coords.accuracy)}m`;
+                        resolve({ latitude: currentLat, longitude: currentLon });
+                    },
+                    err => {
+                        showAlert('Location access is required to punch in or out. Please allow location access and try again.', true);
+                        document.getElementById('gps-status').innerHTML =
+                            `<i class="fa-solid fa-circle-xmark" style="color:var(--warning)"></i> Location access denied. Punch-in/out cannot continue without GPS.`;
+                        resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
         }
 
         async function loadAttendance() {
@@ -358,8 +382,17 @@
             showAlert('', false);
             const btn = document.getElementById('btn-punchin');
             btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
+
+            const location = await requestLocation();
+            if (!location) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Punch In';
+                return;
+            }
+
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching In…';
-            const body = { latitude: currentLat, longitude: currentLon };
+            const body = { latitude: location.latitude, longitude: location.longitude };
             const res = await fetch('/api/employee/attendance/punch-in', {
                 method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
             });
@@ -395,9 +428,17 @@
 
             const btn = document.getElementById('btn-punchout');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
 
-            const body = { latitude: currentLat, longitude: currentLon, half_day_reason: reason || null };
+            const location = await requestLocation();
+            if (!location) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Punch Out';
+                return;
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
+            const body = { latitude: location.latitude, longitude: location.longitude, half_day_reason: reason || null };
             const res = await fetch('/api/employee/attendance/punch-out', {
                 method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
             });

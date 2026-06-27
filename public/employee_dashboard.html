@@ -672,17 +672,53 @@
     }
 
     async function punchIn() {
-        const res  = await fetch('/api/employee/attendance/punch-in', { method: 'POST' });
+        const location = await requestLocation();
+        if (!location) return;
+
+        const res  = await fetch('/api/employee/attendance/punch-in', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
+        });
         const data = await res.json();
         showAttMsg(data.message, res.ok);
         await loadDashboardData();
     }
 
     async function punchOut() {
-        const res  = await fetch('/api/employee/attendance/punch-out', { method: 'POST' });
+        const location = await requestLocation();
+        if (!location) return;
+
+        const res  = await fetch('/api/employee/attendance/punch-out', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
+        });
         const data = await res.json();
         showAttMsg(data.message, res.ok);
         await loadDashboardData();
+    }
+
+    function requestLocation() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                showAttMsg('Geolocation is not supported in this browser.', false);
+                resolve(null);
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                }),
+                (error) => {
+                    showAttMsg('Location access is required to punch in/out. Please allow location access and try again.', false);
+                    resolve(null);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        });
     }
 
     function showAttMsg(msg, ok) {

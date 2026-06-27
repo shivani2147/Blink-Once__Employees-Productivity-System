@@ -10,6 +10,7 @@ from models import (
     LeaveBalance, Holiday, OfficeLocation, ProductivityEditHistory
 )
 from auth import get_current_employee
+from config import OFFICE_LOCATION_NAME, OFFICE_LATITUDE, OFFICE_LONGITUDE, OFFICE_RADIUS_METERS
 import math
 import json
 import os
@@ -108,18 +109,25 @@ def _get_office_location(db: Session):
     return db.query(OfficeLocation).filter(OfficeLocation.is_active == True).first()
 
 def _validate_gps(db: Session, lat: Optional[float], lon: Optional[float]) -> tuple[bool, str]:
-    """Returns (is_valid, error_message). If no GPS provided, passes (permissive)."""
+    """Returns (is_valid, error_message). GPS location is required for punch in/out."""
     if lat is None or lon is None:
-        # GPS not provided — allow without restriction (handles HTTP/dev scenarios)
-        return True, ""
+        return False, "Your location is required to punch in or punch out. Please allow location access."
+
     office = _get_office_location(db)
-    if not office:
-        return True, ""  # No office configured — allow
-    dist = _haversine(lat, lon, office.latitude, office.longitude)
-    if dist > office.radius_meters:
+    if office is None:
+        office_lat = OFFICE_LATITUDE
+        office_lon = OFFICE_LONGITUDE
+        office_radius = OFFICE_RADIUS_METERS
+    else:
+        office_lat = office.latitude
+        office_lon = office.longitude
+        office_radius = office.radius_meters
+
+    dist = _haversine(lat, lon, office_lat, office_lon)
+    if dist > office_radius:
         return False, (
             f"You are {int(dist)} m away from the office. "
-            f"You must be within {office.radius_meters} m to punch in/out."
+            f"You must be within {office_radius} m to punch in/out."
         )
     return True, ""
 
@@ -313,12 +321,17 @@ async def get_dashboard_data(user: User = Depends(get_current_employee), db: Ses
 async def get_office_location(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
     office = _get_office_location(db)
     if not office:
-        return {"latitude": None, "longitude": None, "radius_meters": 100, "name": "Not configured"}
+        return {
+            "latitude": OFFICE_LATITUDE,
+            "longitude": OFFICE_LONGITUDE,
+            "radius_meters": OFFICE_RADIUS_METERS,
+            "name": OFFICE_LOCATION_NAME,
+        }
     return {
         "latitude": office.latitude,
         "longitude": office.longitude,
         "radius_meters": office.radius_meters,
-        "name": office.name,
+        "name": office.name or OFFICE_LOCATION_NAME,
     }
 
 # ══════════════════════════════════════════════════════════════════════════════
