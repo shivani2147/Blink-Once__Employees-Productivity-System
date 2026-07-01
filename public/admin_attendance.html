@@ -6,7 +6,7 @@
     <title>Attendance Management | Blink Once Admin</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         .admin-nav-secondary {
             display: flex; gap: 0.5rem; flex-wrap: wrap;
@@ -57,6 +57,17 @@
             flex-shrink:0; margin-right:0.6rem;
         }
         .emp-cell { display:flex; align-items:center; }
+
+        /* WFH Requests */
+        .wfh-sub-tabs { display:flex; gap:0.5rem; margin-bottom:1.5rem; }
+        .wfh-tab-btn { padding:0.45rem 1rem; border-radius:8px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); background:none; border:1px solid var(--border-color); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:0.4rem; }
+        .wfh-tab-btn:hover { background:rgba(79,70,229,0.06); color:var(--accent-primary); }
+        .wfh-tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
+
+        .btn-wfh-approve { background:rgba(5,150,105,0.1); color:#059669; border:1px solid rgba(5,150,105,0.25); font-size:0.78rem; padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-weight:600; transition:all 0.2s; }
+        .btn-wfh-approve:hover { background:#059669; color:white; }
+        .btn-wfh-reject  { background:rgba(220,38,38,0.1);  color:#dc2626; border:1px solid rgba(220,38,38,0.25);  font-size:0.78rem; padding:0.35rem 0.75rem; border-radius:6px; cursor:pointer; font-weight:600; transition:all 0.2s; }
+        .btn-wfh-reject:hover  { background:#dc2626; color:white; }
     </style>
 </head>
 <body>
@@ -89,6 +100,15 @@
         </div>
         <button class="btn btn-outline" onclick="exportCSV()" id="export-btn">
             <i class="fa-solid fa-file-csv"></i> Export CSV
+        </button>
+    </div>
+
+    <!-- View Switcher -->
+    <div class="wfh-sub-tabs">
+        <button id="tab-btn-records" class="wfh-tab-btn active" onclick="switchMainTab('records')"><i class="fa-solid fa-table-list"></i> Attendance Records</button>
+        <button id="tab-btn-wfh" class="wfh-tab-btn" onclick="switchMainTab('wfh')">
+            <i class="fa-solid fa-house-laptop"></i> WFH Requests
+            <span id="wfh-pending-count" style="display:none;background:#f59e0b;color:white;border-radius:10px;padding:0 6px;font-size:0.7rem;min-width:18px;text-align:center;"></span>
         </button>
     </div>
 
@@ -169,6 +189,43 @@
             </table>
         </div>
     </div>
+
+    <!-- WFH Requests Panel -->
+    <div id="panel-wfh" style="display:none;">
+        <div class="glass-panel" style="padding:1.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+                <h3 style="margin:0;"><i class="fa-solid fa-house-laptop" style="color:var(--accent-primary)"></i> Work From Home Requests</h3>
+                <div style="display:flex;gap:0.5rem;">
+                    <select id="wfh-status-filter" class="form-control" style="width:auto;padding:0.4rem 0.8rem;font-size:0.82rem;" onchange="loadWfhRequests()">
+                        <option value="">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+            </div>
+            <div id="wfh-empty" class="text-center text-secondary" style="padding:3rem;display:none;">
+                <i class="fa-solid fa-house-laptop" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:1rem;"></i>
+                <p>No WFH requests found</p>
+            </div>
+            <div id="wfh-table-wrap" style="display:none;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Date</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wfh-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </main>
 
 <!-- Edit Modal -->
@@ -206,6 +263,21 @@
 <script src="/static/js/main.js"></script>
 <script>
 let employees = [];
+
+function switchMainTab(tab) {
+    const isRecords = tab === 'records';
+    document.getElementById('panel-wfh').style.display       = isRecords ? 'none' : 'block';
+    document.getElementById('tab-btn-records').classList.toggle('active',  isRecords);
+    document.getElementById('tab-btn-wfh').classList.toggle('active', !isRecords);
+    document.getElementById('export-btn').style.display      = isRecords ? '' : 'none';
+    // Show/hide records panels
+    document.querySelector('.stat-cards-row').style.display  = isRecords ? '' : 'none';
+    document.querySelectorAll('.glass-panel').forEach(p => {
+        if (p.closest('#panel-wfh')) return;
+        p.style.display = isRecords ? '' : 'none';
+    });
+    if (!isRecords) loadWfhRequests();
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -354,6 +426,83 @@ async function logout() {
     await fetch('/api/logout', {method:'POST'});
     location.href = '/login';
 }
+
+async function loadWfhRequests() {
+    const sf = document.getElementById('wfh-status-filter').value;
+    const params = new URLSearchParams();
+    if (sf) params.set('status_filter', sf);
+    const res = await fetch('/api/admin/wfh-requests?' + params);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    // Update pending badge
+    const badge = document.getElementById('wfh-pending-count');
+    if (d.pending_count > 0) {
+        badge.textContent = d.pending_count;
+        badge.style.display = 'inline';
+    } else {
+        badge.style.display = 'none';
+    }
+
+    const empty = document.getElementById('wfh-empty');
+    const wrap  = document.getElementById('wfh-table-wrap');
+    if (!d.requests.length) {
+        empty.style.display = 'block'; wrap.style.display = 'none'; return;
+    }
+    empty.style.display = 'none'; wrap.style.display = 'block';
+
+    const statusCls = { 'Approved':'badge-approved', 'Pending':'badge-pending', 'Rejected':'badge-rejected' };
+    document.getElementById('wfh-tbody').innerHTML = d.requests.map(r => {
+        const initials = r.employee_name.split(' ').map(w => w[0]).slice(0,2).join('');
+        const cls = statusCls[r.status] || 'badge-pending';
+        const actions = r.status === 'Pending'
+            ? `<div style="display:flex;gap:0.4rem;">
+                <button class="btn-wfh-approve" onclick="wfhAction(${r.id},'Approve')">
+                    <i class="fa-solid fa-check"></i> Approve
+                </button>
+                <button class="btn-wfh-reject" onclick="wfhAction(${r.id},'Reject')">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                </button>
+               </div>`
+            : `<span style="color:var(--text-secondary);font-size:0.82rem;">${r.status}</span>`;
+
+        return `<tr>
+            <td>
+                <div class="emp-cell">
+                    <div class="emp-avatar">${initials}</div>
+                    <div>
+                        <strong style="font-size:0.9rem;">${r.employee_name}</strong>
+                        <span style="display:block;font-size:0.72rem;color:var(--text-secondary);">${r.employee_code}</span>
+                    </div>
+                </div>
+            </td>
+            <td style="font-size:0.88rem;">${r.department || '—'}</td>
+            <td style="font-size:0.88rem;">${r.date}</td>
+            <td style="font-size:0.85rem;color:var(--text-secondary);max-width:220px;">${r.reason}</td>
+            <td><span class="badge ${cls}">${r.status}</span></td>
+            <td>${actions}</td>
+        </tr>`;
+    }).join('');
+
+    // Also update pending badge on tab button
+    if (d.pending_count > 0) { badge.textContent = d.pending_count; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+}
+
+async function wfhAction(id, action) {
+    const res = await fetch(`/api/admin/wfh-requests/${id}/action`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ action })
+    });
+    if (res.ok) {
+        await loadWfhRequests();
+    } else {
+        const d = await res.json();
+        alert(d.detail || 'Action failed.');
+    }
+}
 </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

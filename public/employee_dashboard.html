@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Dashboard | Blink Once EPS</title>
-    <meta name="description" content="Employee productivity dashboard — track your tasks, attendance, leaves and deadlines.">
+    <meta name="description"
+        content="Employee productivity dashboard — track your tasks, attendance, leaves and deadlines.">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         /* ── Dashboard-specific overrides ── */
         .dashboard-top-grid {
@@ -16,18 +18,37 @@
             gap: 1.25rem;
             margin-bottom: 2rem;
         }
-        @media (max-width: 1100px) { .dashboard-top-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 700px)  { .dashboard-top-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        @media (max-width: 1100px) {
+            .dashboard-top-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .dashboard-top-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
 
         .stat-card .stat-icon {
-            width: 42px; height: 42px;
+            width: 42px;
+            height: 42px;
             border-radius: 10px;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 1.1rem;
             margin-bottom: 0.75rem;
         }
-        .stat-card .stat-value { font-size: 2rem; }
-        .stat-card .stat-title { font-size: 0.78rem; }
+
+        .stat-card .stat-value {
+            font-size: 2rem;
+        }
+
+        .stat-card .stat-title {
+            font-size: 0.78rem;
+        }
 
         /* Middle section grid */
         .mid-grid {
@@ -36,38 +57,57 @@
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
-        @media (max-width: 900px) { .mid-grid { grid-template-columns: 1fr; } }
+
+        @media (max-width: 900px) {
+            .mid-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         /* Attendance widget */
         .attendance-widget {
             padding: 1.75rem;
         }
+
         .attendance-status-row {
             display: flex;
             align-items: center;
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
+
         .status-dot {
-            width: 12px; height: 12px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .status-dot.present { background: var(--success); box-shadow: 0 0 8px rgba(5,150,105,0.5); }
-        .status-dot.absent  { background: var(--danger);  box-shadow: 0 0 8px rgba(220,38,38,0.4); }
+
+        .status-dot.present {
+            background: var(--success);
+            box-shadow: 0 0 8px rgba(5, 150, 105, 0.5);
+        }
+
+        .status-dot.absent {
+            background: var(--danger);
+            box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+        }
+
         .attendance-times {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.75rem;
             margin-bottom: 1.25rem;
         }
+
         .time-chip {
             padding: 0.75rem 1rem;
             border-radius: 10px;
-            background: rgba(0,0,0,0.03);
+            background: rgba(0, 0, 0, 0.03);
             border: 1px solid var(--border-color);
             font-size: 0.85rem;
         }
+
         .time-chip span {
             display: block;
             font-size: 0.72rem;
@@ -77,55 +117,126 @@
             margin-bottom: 0.3rem;
             font-weight: 600;
         }
-        .time-chip strong { font-size: 1.1rem; }
-        .attendance-btns { display: flex; gap: 0.75rem; }
-        .attendance-btns .btn { flex: 1; justify-content: center; }
+
+        .time-chip strong {
+            font-size: 1.1rem;
+        }
+
+        .attendance-btns {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .attendance-btns .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
         .btn-success {
             background: linear-gradient(135deg, #059669, #10b981);
             color: white;
-            box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
         }
-        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(5,150,105,0.35); }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(5, 150, 105, 0.35);
+        }
+
         .btn-danger {
             background: linear-gradient(135deg, #dc2626, #ef4444);
             color: white;
-            box-shadow: 0 4px 12px rgba(220,38,38,0.2);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
         }
-        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(220,38,38,0.35); }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 38, 38, 0.35);
+        }
 
         /* Notification panel */
-        .notif-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+        .notif-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
         .notif-item {
-            display: flex; gap: 0.75rem; align-items: flex-start;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
             padding: 0.8rem 1rem;
             border-radius: 10px;
-            background: rgba(0,0,0,0.025);
+            background: rgba(0, 0, 0, 0.025);
             border: 1px solid var(--border-color);
             font-size: 0.88rem;
             line-height: 1.4;
         }
-        .notif-item i { color: var(--accent-primary); margin-top: 2px; flex-shrink: 0; }
+
+        .notif-item i {
+            color: var(--accent-primary);
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
 
         /* To-Do / Deadline cards */
-        .task-cards { display: flex; flex-direction: column; gap: 0.6rem; }
+        .task-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
         .task-item {
-            display: flex; align-items: center; gap: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
             padding: 0.85rem 1rem;
             border-radius: 10px;
             border: 1px solid var(--border-color);
-            background: rgba(0,0,0,0.02);
+            background: rgba(0, 0, 0, 0.02);
             transition: border-color 0.2s ease, transform 0.2s ease;
         }
-        .task-item:hover { border-color: rgba(79,70,229,0.2); transform: translateX(2px); }
-        .task-priority-bar {
-            width: 4px; height: 40px; border-radius: 4px; flex-shrink: 0;
+
+        .task-item:hover {
+            border-color: rgba(79, 70, 229, 0.2);
+            transform: translateX(2px);
         }
-        .priority-high   { background: var(--danger); }
-        .priority-medium { background: var(--warning); }
-        .priority-low    { background: var(--success); }
-        .task-info { flex: 1; }
-        .task-info strong { font-size: 0.92rem; display: block; margin-bottom: 0.15rem; }
-        .task-info small { font-size: 0.78rem; color: var(--text-secondary); }
+
+        .task-priority-bar {
+            width: 4px;
+            height: 40px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .priority-high {
+            background: var(--danger);
+        }
+
+        .priority-medium {
+            background: var(--warning);
+        }
+
+        .priority-low {
+            background: var(--success);
+        }
+
+        .task-info {
+            flex: 1;
+        }
+
+        .task-info strong {
+            font-size: 0.92rem;
+            display: block;
+            margin-bottom: 0.15rem;
+        }
+
+        .task-info small {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
         .days-chip {
             font-size: 0.75rem;
             font-weight: 600;
@@ -133,43 +244,98 @@
             border-radius: 20px;
             white-space: nowrap;
         }
-        .days-today  { background: rgba(220,38,38,0.1);  color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
-        .days-soon   { background: rgba(217,119,6,0.1);  color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
-        .days-fine   { background: rgba(5,150,105,0.08); color: #059669; border: 1px solid rgba(5,150,105,0.15); }
-        .days-overdue{ background: rgba(220,38,38,0.15); color: #b91c1c; border: 1px solid rgba(220,38,38,0.3); }
+
+        .days-today {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        .days-soon {
+            background: rgba(217, 119, 6, 0.1);
+            color: #d97706;
+            border: 1px solid rgba(217, 119, 6, 0.2);
+        }
+
+        .days-fine {
+            background: rgba(5, 150, 105, 0.08);
+            color: #059669;
+            border: 1px solid rgba(5, 150, 105, 0.15);
+        }
+
+        .days-overdue {
+            background: rgba(220, 38, 38, 0.15);
+            color: #b91c1c;
+            border: 1px solid rgba(220, 38, 38, 0.3);
+        }
 
         /* Section header row */
         .section-header {
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 1.25rem;
         }
-        .section-header h3 { margin-bottom: 0; font-size: 1rem; }
+
+        .section-header h3 {
+            margin-bottom: 0;
+            font-size: 1rem;
+        }
 
         /* Leave table inside panel */
-        .leave-table-wrap { overflow-x: auto; }
-        .leave-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-        .leave-table th, .leave-table td {
+        .leave-table-wrap {
+            overflow-x: auto;
+        }
+
+        .leave-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        .leave-table th,
+        .leave-table td {
             padding: 0.7rem 0.9rem;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
         }
+
         .leave-table th {
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--text-secondary);
             font-weight: 600;
-            background: rgba(241,245,249,0.7);
+            background: rgba(241, 245, 249, 0.7);
         }
-        .badge-approved { background: rgba(5,150,105,0.1); color: #059669; border: 1px solid rgba(5,150,105,0.2); }
-        .badge-rejected { background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.2); }
-        .badge-pending  { background: rgba(217,119,6,0.1);  color: #d97706; border: 1px solid rgba(217,119,6,0.2); }
+
+        .badge-approved {
+            background: rgba(5, 150, 105, 0.1);
+            color: #059669;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .badge-rejected {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        .badge-pending {
+            background: rgba(217, 119, 6, 0.1);
+            color: #d97706;
+            border: 1px solid rgba(217, 119, 6, 0.2);
+        }
 
         /* Records section */
-        .records-section { margin-top: 2rem; }
+        .records-section {
+            margin-top: 2rem;
+        }
 
         /* Panel padding helper */
-        .panel-padded { padding: 1.5rem 1.75rem; }
+        .panel-padded {
+            padding: 1.5rem 1.75rem;
+        }
 
         /* Empty state */
         .empty-state {
@@ -177,28 +343,52 @@
             padding: 2.5rem 1rem;
             color: var(--text-secondary);
         }
-        .empty-state i { font-size: 2.2rem; margin-bottom: 0.75rem; opacity: 0.4; display: block; }
-        .empty-state p { font-size: 0.88rem; }
+
+        .empty-state i {
+            font-size: 2.2rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.4;
+            display: block;
+        }
+
+        .empty-state p {
+            font-size: 0.88rem;
+        }
 
         /* Dark overrides for new elements */
         .dark-theme .time-chip,
         .dark-theme .task-item,
         .dark-theme .notif-item {
-            background: rgba(255,255,255,0.03);
+            background: rgba(255, 255, 255, 0.03);
         }
+
         .dark-theme .leave-table th {
-            background: rgba(17,24,39,0.7);
+            background: rgba(17, 24, 39, 0.7);
         }
-        .dark-theme .badge-pending  { background: rgba(245,158,11,0.15); color: #fbbf24; }
-        .dark-theme .badge-approved { background: rgba(16,185,129,0.12); color: #34d399; }
-        .dark-theme .badge-rejected { background: rgba(239,68,68,0.12);  color: #f87171; }
+
+        .dark-theme .badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .dark-theme .badge-approved {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+        }
+
+        .dark-theme .badge-rejected {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+        }
 
         /* Tabs */
         .tab-bar {
-            display: flex; gap: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
             border-bottom: 2px solid var(--border-color);
             margin-bottom: 1.25rem;
         }
+
         .tab-btn {
             padding: 0.55rem 1rem;
             font-size: 0.85rem;
@@ -211,14 +401,22 @@
             cursor: pointer;
             transition: color 0.2s, border-color 0.2s;
         }
+
         .tab-btn.active {
             color: var(--accent-primary);
             border-bottom-color: var(--accent-primary);
         }
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
     </style>
 </head>
+
 <body>
     <nav class="navbar glass-panel">
         <div class="nav-brand">
@@ -231,7 +429,8 @@
             <button id="theme-toggle-btn" class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme">
                 <i class="fa-solid fa-moon"></i>
             </button>
-            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i
+                    class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
         </div>
     </nav>
 
@@ -240,27 +439,32 @@
         <!-- ── STAT CARDS ── -->
         <div class="dashboard-top-grid" id="stats-grid">
             <div class="stat-card glass-panel">
-                <div class="stat-icon" style="background:rgba(79,70,229,0.1);color:var(--accent-primary)"><i class="fa-solid fa-list-check"></i></div>
+                <div class="stat-icon" style="background:rgba(79,70,229,0.1);color:var(--accent-primary)"><i
+                        class="fa-solid fa-list-check"></i></div>
                 <div class="stat-title">Assigned</div>
                 <div class="stat-value gradient-text" id="stat-assigned">–</div>
             </div>
             <div class="stat-card glass-panel">
-                <div class="stat-icon" style="background:rgba(5,150,105,0.1);color:#059669"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stat-icon" style="background:rgba(5,150,105,0.1);color:#059669"><i
+                        class="fa-solid fa-circle-check"></i></div>
                 <div class="stat-title">Completed</div>
                 <div class="stat-value" style="color:#059669" id="stat-completed">–</div>
             </div>
             <div class="stat-card glass-panel">
-                <div class="stat-icon" style="background:rgba(217,119,6,0.1);color:#d97706"><i class="fa-solid fa-hourglass-half"></i></div>
+                <div class="stat-icon" style="background:rgba(217,119,6,0.1);color:#d97706"><i
+                        class="fa-solid fa-hourglass-half"></i></div>
                 <div class="stat-title">Pending</div>
                 <div class="stat-value" style="color:#d97706" id="stat-pending">–</div>
             </div>
             <div class="stat-card glass-panel">
-                <div class="stat-icon" style="background:rgba(37,99,235,0.1);color:#2563eb"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-icon" style="background:rgba(37,99,235,0.1);color:#2563eb"><i
+                        class="fa-solid fa-calendar-days"></i></div>
                 <div class="stat-title">Upcoming</div>
                 <div class="stat-value" style="color:#2563eb" id="stat-upcoming">–</div>
             </div>
             <div class="stat-card glass-panel">
-                <div class="stat-icon" style="background:rgba(220,38,38,0.1);color:#dc2626"><i class="fa-solid fa-umbrella-beach"></i></div>
+                <div class="stat-icon" style="background:rgba(220,38,38,0.1);color:#dc2626"><i
+                        class="fa-solid fa-umbrella-beach"></i></div>
                 <div class="stat-title">Leaves Taken</div>
                 <div class="stat-value" style="color:#dc2626" id="stat-leaves">–</div>
             </div>
@@ -272,7 +476,8 @@
             <!-- Attendance Widget -->
             <div class="glass-panel attendance-widget">
                 <div class="section-header">
-                    <h3><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Today's Attendance</h3>
+                    <h3><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Today's Attendance
+                    </h3>
                     <span id="att-date" class="text-secondary" style="font-size:0.82rem"></span>
                 </div>
                 <div class="attendance-status-row">
@@ -301,7 +506,8 @@
                         <i class="fa-solid fa-arrow-right-from-bracket"></i> Punch Out
                     </button>
                 </div>
-                <div id="att-msg" style="margin-top:0.75rem; font-size:0.82rem; color:var(--success); display:none;"></div>
+                <div id="att-msg" style="margin-top:0.75rem; font-size:0.82rem; color:var(--success); display:none;">
+                </div>
             </div>
 
             <!-- Notifications -->
@@ -311,7 +517,9 @@
                     <span id="notif-count" class="badge badge-pending" style="font-size:0.72rem">0</span>
                 </div>
                 <ul class="notif-list" id="notif-list">
-                    <li class="empty-state"><i class="fa-regular fa-bell-slash"></i><p>No notifications</p></li>
+                    <li class="empty-state"><i class="fa-regular fa-bell-slash"></i>
+                        <p>No notifications</p>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -326,7 +534,9 @@
                     <span id="todo-count" class="badge badge-notstarted" style="font-size:0.72rem">0 tasks</span>
                 </div>
                 <div class="task-cards" id="todo-list">
-                    <div class="empty-state"><i class="fa-regular fa-calendar-check"></i><p>Nothing due today 🎉</p></div>
+                    <div class="empty-state"><i class="fa-regular fa-calendar-check"></i>
+                        <p>Nothing due today 🎉</p>
+                    </div>
                 </div>
             </div>
 
@@ -337,7 +547,9 @@
                     <span id="upcoming-count" class="badge badge-pending" style="font-size:0.72rem">0 tasks</span>
                 </div>
                 <div class="task-cards" id="upcoming-list">
-                    <div class="empty-state"><i class="fa-regular fa-clock"></i><p>No upcoming deadlines</p></div>
+                    <div class="empty-state"><i class="fa-regular fa-clock"></i>
+                        <p>No upcoming deadlines</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -366,7 +578,12 @@
                             </tr>
                         </thead>
                         <tbody id="leave-table-body">
-                            <tr><td colspan="5" class="empty-state"><i class="fa-regular fa-calendar" style="font-size:1.2rem"></i><p>No leave records</p></td></tr>
+                            <tr>
+                                <td colspan="5" class="empty-state"><i class="fa-regular fa-calendar"
+                                        style="font-size:1.2rem"></i>
+                                    <p>No leave records</p>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -447,7 +664,8 @@
                 </div>
                 <div class="form-group">
                     <label>Editing Type</label>
-                    <input type="text" name="editing_type" class="form-control" placeholder="e.g. Traditional, Reels, Function" required>
+                    <input type="text" name="editing_type" class="form-control"
+                        placeholder="e.g. Traditional, Reels, Function" required>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
@@ -588,194 +806,194 @@
 
     <script src="/static/js/main.js"></script>
     <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-        // Auth check
-        try {
-            const meRes = await fetch('/api/auth/me');
-            if (!meRes.ok) { window.location.href = '/login'; return; }
-            const user = await meRes.json();
-            document.getElementById('nav-user-name').textContent = user.employee_name;
-        } catch (e) {
-            window.location.href = '/login'; return;
-        }
-
-        // Set today's date label
-        document.getElementById('att-date').textContent = new Date().toLocaleDateString('en-IN', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
-
-        // Load all dashboard data
-        await loadDashboardData();
-        await fetchRecords();
-    });
-
-    /* ── Load /api/employee/data ── */
-    async function loadDashboardData() {
-        try {
-            const res = await fetch('/api/employee/data');
-            if (!res.ok) return;
-            const data = await res.json();
-
-            // Stats
-            document.getElementById('stat-assigned').textContent  = data.stats.assigned  ?? 0;
-            document.getElementById('stat-completed').textContent = data.stats.completed ?? 0;
-            document.getElementById('stat-pending').textContent   = data.stats.pending   ?? 0;
-            document.getElementById('stat-upcoming').textContent  = data.stats.upcoming  ?? 0;
-            document.getElementById('stat-leaves').textContent    = data.stats.leaves_taken ?? 0;
-
-            // Attendance
-            renderAttendance(data.attendance);
-
-            // Notifications
-            renderNotifications(data.notifications || []);
-
-            // Today's To-Do
-            renderToDoList(data.today_todo || []);
-
-            // Upcoming Deadlines
-            renderUpcoming(data.upcoming_deadlines || []);
-
-            // Leaves
-            renderLeaves(data.leaves || []);
-
-        } catch (err) {
-            console.error("Dashboard data error:", err);
-        }
-    }
-
-    /* ── Attendance ── */
-    function renderAttendance(att) {
-        const dot  = document.getElementById('att-dot');
-        const text = document.getElementById('att-status-text');
-        const inEl = document.getElementById('att-in');
-        const outEl= document.getElementById('att-out');
-        const hrEl = document.getElementById('att-hours');
-
-        if (att.status === 'Present') {
-            dot.className  = 'status-dot present';
-            text.textContent = '✅ Present';
-            text.style.color = 'var(--success)';
-        } else {
-            dot.className  = 'status-dot absent';
-            text.textContent = '❌ Absent';
-            text.style.color = 'var(--danger)';
-        }
-        inEl.textContent  = att.time_in  || '—';
-        outEl.textContent = att.time_out || '—';
-        hrEl.textContent  = att.total_hours ? att.total_hours + ' hrs' : '0 hrs';
-
-        // Toggle button states
-        document.getElementById('btn-punch-in').disabled  = !!att.time_in;
-        document.getElementById('btn-punch-out').disabled = !att.time_in || !!att.time_out;
-        if (att.time_in)  document.getElementById('btn-punch-in').style.opacity  = att.time_in  ? '0.5' : '1';
-        if (att.time_out) document.getElementById('btn-punch-out').style.opacity = att.time_out ? '0.5' : '1';
-    }
-
-    async function punchIn() {
-        const location = await requestLocation();
-        if (!location) return;
-
-        const res  = await fetch('/api/employee/attendance/punch-in', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
-        });
-        const data = await res.json();
-        showAttMsg(data.message, res.ok);
-        await loadDashboardData();
-    }
-
-    async function punchOut() {
-        const location = await requestLocation();
-        if (!location) return;
-
-        const res  = await fetch('/api/employee/attendance/punch-out', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
-        });
-        const data = await res.json();
-        showAttMsg(data.message, res.ok);
-        await loadDashboardData();
-    }
-
-    function requestLocation() {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                showAttMsg('Geolocation is not supported in this browser.', false);
-                resolve(null);
-                return;
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Auth check
+            try {
+                const meRes = await fetch('/api/auth/me');
+                if (!meRes.ok) { window.location.href = '/login'; return; }
+                const user = await meRes.json();
+                document.getElementById('nav-user-name').textContent = user.employee_name;
+            } catch (e) {
+                window.location.href = '/login'; return;
             }
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => resolve({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                }),
-                (error) => {
-                    showAttMsg('Location access is required to punch in/out. Please allow location access and try again.', false);
-                    resolve(null);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
+            // Set today's date label
+            document.getElementById('att-date').textContent = new Date().toLocaleDateString('en-IN', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            // Load all dashboard data
+            await loadDashboardData();
+            await fetchRecords();
         });
-    }
 
-    function showAttMsg(msg, ok) {
-        const el = document.getElementById('att-msg');
-        el.textContent = msg;
-        el.style.color = ok ? 'var(--success)' : 'var(--danger)';
-        el.style.display = 'block';
-        setTimeout(() => el.style.display = 'none', 4000);
-    }
+        /* ── Load /api/employee/data ── */
+        async function loadDashboardData() {
+            try {
+                const res = await fetch('/api/employee/data');
+                if (!res.ok) return;
+                const data = await res.json();
 
-    /* ── Notifications ── */
-    function renderNotifications(items) {
-        const list = document.getElementById('notif-list');
-        document.getElementById('notif-count').textContent = items.length;
-        if (!items.length) return;
-        list.innerHTML = items.map(n => `
+                // Stats
+                document.getElementById('stat-assigned').textContent = data.stats.assigned ?? 0;
+                document.getElementById('stat-completed').textContent = data.stats.completed ?? 0;
+                document.getElementById('stat-pending').textContent = data.stats.pending ?? 0;
+                document.getElementById('stat-upcoming').textContent = data.stats.upcoming ?? 0;
+                document.getElementById('stat-leaves').textContent = data.stats.leaves_taken ?? 0;
+
+                // Attendance
+                renderAttendance(data.attendance);
+
+                // Notifications
+                renderNotifications(data.notifications || []);
+
+                // Today's To-Do
+                renderToDoList(data.today_todo || []);
+
+                // Upcoming Deadlines
+                renderUpcoming(data.upcoming_deadlines || []);
+
+                // Leaves
+                renderLeaves(data.leaves || []);
+
+            } catch (err) {
+                console.error("Dashboard data error:", err);
+            }
+        }
+
+        /* ── Attendance ── */
+        function renderAttendance(att) {
+            const dot = document.getElementById('att-dot');
+            const text = document.getElementById('att-status-text');
+            const inEl = document.getElementById('att-in');
+            const outEl = document.getElementById('att-out');
+            const hrEl = document.getElementById('att-hours');
+
+            if (att.status === 'Present') {
+                dot.className = 'status-dot present';
+                text.textContent = '✅ Present';
+                text.style.color = 'var(--success)';
+            } else {
+                dot.className = 'status-dot absent';
+                text.textContent = '❌ Absent';
+                text.style.color = 'var(--danger)';
+            }
+            inEl.textContent = att.time_in || '—';
+            outEl.textContent = att.time_out || '—';
+            hrEl.textContent = att.total_hours ? att.total_hours + ' hrs' : '0 hrs';
+
+            // Toggle button states
+            document.getElementById('btn-punch-in').disabled = !!att.time_in;
+            document.getElementById('btn-punch-out').disabled = !att.time_in || !!att.time_out;
+            if (att.time_in) document.getElementById('btn-punch-in').style.opacity = att.time_in ? '0.5' : '1';
+            if (att.time_out) document.getElementById('btn-punch-out').style.opacity = att.time_out ? '0.5' : '1';
+        }
+
+        async function punchIn() {
+            const location = await requestLocation();
+            if (!location) return;
+
+            const res = await fetch('/api/employee/attendance/punch-in', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
+            });
+            const data = await res.json();
+            showAttMsg(data.message, res.ok);
+            await loadDashboardData();
+        }
+
+        async function punchOut() {
+            const location = await requestLocation();
+            if (!location) return;
+
+            const res = await fetch('/api/employee/attendance/punch-out', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude })
+            });
+            const data = await res.json();
+            showAttMsg(data.message, res.ok);
+            await loadDashboardData();
+        }
+
+        function requestLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    showAttMsg('Geolocation is not supported in this browser.', false);
+                    resolve(null);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => resolve({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    }),
+                    (error) => {
+                        showAttMsg('Location access is required to punch in/out. Please allow location access and try again.', false);
+                        resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
+        }
+
+        function showAttMsg(msg, ok) {
+            const el = document.getElementById('att-msg');
+            el.textContent = msg;
+            el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 4000);
+        }
+
+        /* ── Notifications ── */
+        function renderNotifications(items) {
+            const list = document.getElementById('notif-list');
+            document.getElementById('notif-count').textContent = items.length;
+            if (!items.length) return;
+            list.innerHTML = items.map(n => `
             <li class="notif-item">
                 <i class="fa-solid fa-circle-info"></i>
                 <span>${n}</span>
             </li>
         `).join('');
-    }
-
-    /* ── To-Do ── */
-    function renderToDoList(items) {
-        const el = document.getElementById('todo-list');
-        document.getElementById('todo-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
-        if (!items.length) {
-            el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-calendar-check"></i><p>Nothing due today 🎉</p></div>';
-            return;
         }
-        el.innerHTML = items.map(t => taskCard(t, 'today')).join('');
-    }
 
-    /* ── Upcoming ── */
-    function renderUpcoming(items) {
-        const el = document.getElementById('upcoming-list');
-        document.getElementById('upcoming-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
-        if (!items.length) {
-            el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-clock"></i><p>No upcoming deadlines</p></div>';
-            return;
+        /* ── To-Do ── */
+        function renderToDoList(items) {
+            const el = document.getElementById('todo-list');
+            document.getElementById('todo-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-calendar-check"></i><p>Nothing due today 🎉</p></div>';
+                return;
+            }
+            el.innerHTML = items.map(t => taskCard(t, 'today')).join('');
         }
-        el.innerHTML = items.slice(0, 6).map(t => taskCard(t, 'upcoming')).join('');
-    }
 
-    function taskCard(t, mode) {
-        const days = t.days_remaining;
-        let chip = '';
-        if (mode === 'today') {
-            chip = `<span class="days-chip days-today">Due Today</span>`;
-        } else if (days !== undefined) {
-            if (days < 0)      chip = `<span class="days-chip days-overdue">${Math.abs(days)}d overdue</span>`;
-            else if (days <= 2) chip = `<span class="days-chip days-soon">${days}d left</span>`;
-            else                chip = `<span class="days-chip days-fine">${days}d left</span>`;
+        /* ── Upcoming ── */
+        function renderUpcoming(items) {
+            const el = document.getElementById('upcoming-list');
+            document.getElementById('upcoming-count').textContent = items.length + ' task' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                el.innerHTML = '<div class="empty-state"><i class="fa-regular fa-clock"></i><p>No upcoming deadlines</p></div>';
+                return;
+            }
+            el.innerHTML = items.slice(0, 6).map(t => taskCard(t, 'upcoming')).join('');
         }
-        const priority = (t.priority || 'medium').toLowerCase();
-        return `
+
+        function taskCard(t, mode) {
+            const days = t.days_remaining;
+            let chip = '';
+            if (mode === 'today') {
+                chip = `<span class="days-chip days-today">Due Today</span>`;
+            } else if (days !== undefined) {
+                if (days < 0) chip = `<span class="days-chip days-overdue">${Math.abs(days)}d overdue</span>`;
+                else if (days <= 2) chip = `<span class="days-chip days-soon">${days}d left</span>`;
+                else chip = `<span class="days-chip days-fine">${days}d left</span>`;
+            }
+            const priority = (t.priority || 'medium').toLowerCase();
+            return `
             <div class="task-item">
                 <div class="task-priority-bar priority-${priority}"></div>
                 <div class="task-info">
@@ -783,19 +1001,19 @@
                     <small>${t.client_name}${t.deadline_date ? ' · ' + t.deadline_date : ''}</small>
                 </div>
                 ${chip}
-                <span class="badge badge-${(t.status||'').toLowerCase().replace(/ /g,'-')}" style="font-size:0.7rem">${t.status}</span>
+                <span class="badge badge-${(t.status || '').toLowerCase().replace(/ /g, '-')}" style="font-size:0.7rem">${t.status}</span>
             </div>
         `;
-    }
-
-    /* ── Leaves ── */
-    function renderLeaves(leaves) {
-        const tbody = document.getElementById('leave-table-body');
-        if (!leaves.length) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:0.88rem;">No leave records found</td></tr>`;
-            return;
         }
-        tbody.innerHTML = leaves.map(l => `
+
+        /* ── Leaves ── */
+        function renderLeaves(leaves) {
+            const tbody = document.getElementById('leave-table-body');
+            if (!leaves.length) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:0.88rem;">No leave records found</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = leaves.map(l => `
             <tr>
                 <td>${l.leave_type}</td>
                 <td>${l.start_date}</td>
@@ -804,28 +1022,28 @@
                 <td><span class="badge badge-${l.status.toLowerCase()}">${l.status}</span></td>
             </tr>
         `).join('');
-    }
+        }
 
-    /* ── Records Table ── */
-    async function fetchRecords() {
-        try {
-            const res = await fetch('/api/employee/records');
-            if (!res.ok) return;
-            const data = await res.json();
+        /* ── Records Table ── */
+        async function fetchRecords() {
+            try {
+                const res = await fetch('/api/employee/records');
+                if (!res.ok) return;
+                const data = await res.json();
 
-            if (!data.records || data.records.length === 0) {
-                document.getElementById('no-records').style.display = 'block';
-                document.getElementById('records-container').style.display = 'none';
-                return;
-            }
+                if (!data.records || data.records.length === 0) {
+                    document.getElementById('no-records').style.display = 'block';
+                    document.getElementById('records-container').style.display = 'none';
+                    return;
+                }
 
-            document.getElementById('no-records').style.display = 'none';
-            document.getElementById('records-container').style.display = 'block';
+                document.getElementById('no-records').style.display = 'none';
+                document.getElementById('records-container').style.display = 'block';
 
-            const tbody = document.getElementById('records-table-body');
-            tbody.innerHTML = data.records.map(r => {
-                const sc = (r.status || '').toLowerCase().replace(/ /g, '-');
-                return `
+                const tbody = document.getElementById('records-table-body');
+                tbody.innerHTML = data.records.map(r => {
+                    const sc = (r.status || '').toLowerCase().replace(/ /g, '-');
+                    return `
                     <tr>
                         <td>${r.date || '—'}</td>
                         <td>${r.client_name}</td>
@@ -843,110 +1061,112 @@
                         </td>
                     </tr>
                 `;
-            }).join('');
-        } catch (err) {
-            console.error("Records error:", err);
+                }).join('');
+            } catch (err) {
+                console.error("Records error:", err);
+            }
         }
-    }
 
-    /* ── Add Record Form ── */
-    document.getElementById('add-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = Object.fromEntries(new FormData(e.target).entries());
-        data.video_duration = parseFloat(data.video_duration);
-        data.cameras_used   = parseInt(data.cameras_used);
+        /* ── Add Record Form ── */
+        document.getElementById('add-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target).entries());
+            data.video_duration = parseFloat(data.video_duration);
+            data.cameras_used = parseInt(data.cameras_used);
 
-        const btn = e.target.querySelector('[type=submit]');
-        btn.textContent = 'Saving…'; btn.disabled = true;
+            const btn = e.target.querySelector('[type=submit]');
+            btn.textContent = 'Saving…'; btn.disabled = true;
 
-        const res = await fetch('/api/employee/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            const res = await fetch('/api/employee/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Record';
+            btn.disabled = false;
+
+            if (res.ok) {
+                closeModal('addModal');
+                e.target.reset();
+                await fetchRecords();
+                await loadDashboardData();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (err.detail || 'Could not save record'));
+            }
         });
 
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Record';
-        btn.disabled = false;
+        /* ── Edit Record Form ── */
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit_record_id').value;
+            const data = {
+                status: document.getElementById('edit_status').value,
+                drive_link: document.getElementById('edit_drive_link').value,
+                comments: document.getElementById('edit_comments').value
+            };
 
-        if (res.ok) {
-            closeModal('addModal');
-            e.target.reset();
+            await fetch(`/api/employee/edit/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            closeModal('editModal');
             await fetchRecords();
             await loadDashboardData();
-        } else {
-            const err = await res.json();
-            alert('Error: ' + (err.detail || 'Could not save record'));
-        }
-    });
-
-    /* ── Edit Record Form ── */
-    document.getElementById('edit-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('edit_record_id').value;
-        const data = {
-            status:     document.getElementById('edit_status').value,
-            drive_link: document.getElementById('edit_drive_link').value,
-            comments:   document.getElementById('edit_comments').value
-        };
-
-        await fetch(`/api/employee/edit/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        closeModal('editModal');
-        await fetchRecords();
-        await loadDashboardData();
-    });
-
-    /* ── Leave Form ── */
-    document.getElementById('leave-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = Object.fromEntries(new FormData(e.target).entries());
-        const btn  = e.target.querySelector('[type=submit]');
-        btn.textContent = 'Submitting…'; btn.disabled = true;
-
-        const res = await fetch('/api/employee/leave/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
         });
 
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Application';
-        btn.disabled = false;
+        /* ── Leave Form ── */
+        document.getElementById('leave-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target).entries());
+            const btn = e.target.querySelector('[type=submit]');
+            btn.textContent = 'Submitting…'; btn.disabled = true;
 
-        if (res.ok) {
-            closeModal('leaveModal');
-            e.target.reset();
-            await loadDashboardData();
-        } else {
-            const err = await res.json();
-            alert('Error: ' + (err.detail || 'Could not submit leave'));
+            const res = await fetch('/api/employee/leave/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Application';
+            btn.disabled = false;
+
+            if (res.ok) {
+                closeModal('leaveModal');
+                e.target.reset();
+                await loadDashboardData();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (err.detail || 'Could not submit leave'));
+            }
+        });
+
+        /* ── Modal helpers ── */
+        function openEditModal(id, status, driveLink, comments) {
+            document.getElementById('edit_record_id').value = id;
+            document.getElementById('edit_status').value = status;
+            document.getElementById('edit_drive_link').value = driveLink;
+            document.getElementById('edit_comments').value = comments;
+            openModal('editModal');
         }
-    });
 
-    /* ── Modal helpers ── */
-    function openEditModal(id, status, driveLink, comments) {
-        document.getElementById('edit_record_id').value  = id;
-        document.getElementById('edit_status').value     = status;
-        document.getElementById('edit_drive_link').value = driveLink;
-        document.getElementById('edit_comments').value   = comments;
-        openModal('editModal');
-    }
+        /* ── Tab switcher ── */
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+        }
 
-    /* ── Tab switcher ── */
-    function switchTab(tabId, btn) {
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b  => b.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
-    }
-
-    /* ── Logout ── */
-    async function logout() {
-        await fetch('/api/logout', { method: 'POST' });
-        window.location.href = '/login';
-    }
+        /* ── Logout ── */
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
+
 </html>

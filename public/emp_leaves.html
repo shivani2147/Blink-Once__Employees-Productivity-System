@@ -6,7 +6,7 @@
     <title>Leaves & Holidays | Blink Once EPS</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         body { display:flex; flex-direction:row; min-height:100vh; overflow-x:hidden; }
         body::before { display:none; }
@@ -358,5 +358,6 @@
 
         async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

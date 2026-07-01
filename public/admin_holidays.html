@@ -6,7 +6,7 @@
     <title>Holiday Management | Blink Once EPS</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         .admin-nav-secondary { display:flex; gap:0.5rem; flex-wrap:wrap; padding:0.75rem 2.5rem; background:rgba(255,255,255,0.5); backdrop-filter:blur(10px); border-bottom:1px solid var(--border-color); margin-bottom:2rem; }
         .dark-theme .admin-nav-secondary { background:rgba(17,24,39,0.4); }
@@ -315,5 +315,6 @@
 
         async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

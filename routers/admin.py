@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from database import get_db
-from models import User, ProductivityRecord, Attendance, LeaveRequest, LeaveBalance, Holiday, OfficeLocation, ProductivityEditHistory
+from models import User, ProductivityRecord, Attendance, LeaveRequest, LeaveBalance, Holiday, OfficeLocation, ProductivityEditHistory, Notification
+from sqlalchemy import or_
+import json as _json
 import json
 from auth import get_current_admin, get_password_hash
 from fastapi import UploadFile, File, Form
@@ -45,7 +47,10 @@ async def get_admin_dashboard_data(
     employee_filter: str = "",
     client_filter: str = "",
     project_filter: str = "",
-    status_filter: str = ""
+    status_filter: str = "",
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
 ):
     query = db.query(ProductivityRecord)
     
@@ -57,8 +62,14 @@ async def get_admin_dashboard_data(
         query = query.filter(ProductivityRecord.project_name.ilike(f"%{project_filter}%"))
     if status_filter:
         query = query.filter(ProductivityRecord.status == status_filter)
-        
+    
     records = query.all()
+    if year is not None:
+        records = [r for r in records if r.date and r.date.year == year]
+    if month is not None:
+        records = [r for r in records if r.date and r.date.month == month]
+    if day is not None:
+        records = [r for r in records if r.date and r.date.day == day]
     employees = db.query(User).filter(User.role == "Employee").all()
     
     total_employees = len(employees)
@@ -137,6 +148,185 @@ async def get_admin_dashboard_data(
         "analytics": analytics_data,
         "records": record_list
     }
+
+
+@router.get("/notifications")
+async def get_admin_notifications(user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    """Generate and return admin notifications; persist them so read/unread can be tracked."""
+    today = datetime.date.today()
+    week_ago = today - datetime.timedelta(days=7)
+    now = datetime.datetime.utcnow()
+
+    def _exists(meta_key, ref_id):
+        like_str = f'%"{meta_key}": "{ref_id}"%'
+        return db.query(Notification).filter(Notification.meta_data.like(like_str)).first()
+
+    def _create_if_missing(type_, message, priority, metadata, created_at=None):
+        ref_id = metadata.get('ref_id')
+        if ref_id and _exists('ref_id', ref_id):
+            return
+        n = Notification(
+            type=type_,
+            message=message,
+            priority=priority,
+            meta_data=_json.dumps(metadata),
+            created_at=created_at or datetime.datetime.utcnow()
+        )
+        db.add(n)
+
+    # 1) Leave requests
+    lrs = db.query(LeaveRequest).filter(or_(LeaveRequest.start_date >= week_ago, LeaveRequest.start_date == today)).all()
+    for lr in lrs:
+        user_obj = db.query(User).filter(User.id == lr.user_id).first()
+        who = user_obj.employee_name if user_obj else 'Unknown'
+        
+        msg = f"{who} requested {lr.leave_type} from {lr.start_date.isoformat()} to {lr.end_date.isoformat()}."
+        title = "New Leave Request"
+        priority = "Medium"
+        if lr.status == 'Approved':
+            title = "Leave Approved"
+            msg = f"{who}'s {lr.leave_type} has been approved."
+            priority = "Low"
+        elif lr.status == 'Rejected':
+            title = "Leave Rejected"
+            msg = f"{who}'s {lr.leave_type} request has been rejected."
+            priority = "High"
+        elif lr.start_date == today + datetime.timedelta(days=1) and lr.status == 'Approved':
+            title = "Leave Starts Tomorrow"
+            msg = f"{who}'s approved leave begins tomorrow."
+            priority = "High"
+            
+        metadata = {'ref_id': f'leave_{lr.id}_{lr.status}', 'title': title, 'employee_name': who, 'project_name': ''}
+        _create_if_missing('leave', msg, priority, metadata)
+
+    # 2) Task Notifications
+    tasks = db.query(ProductivityRecord).filter(or_(ProductivityRecord.deadline_date <= today, ProductivityRecord.status == 'Done')).all()
+    for t in tasks:
+        if t.status != 'Done' and t.deadline_date < today:
+            title = "Task Overdue"
+            msg = f"{t.employee_name} has not completed \"{t.project_name}\" which was due on {t.deadline_date.isoformat()}."
+            priority = "High"
+            _create_if_missing('task', msg, priority, {'ref_id': f'overdue_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name})
+        elif t.status != 'Done' and t.deadline_date == today:
+            title = "Deadline Today"
+            msg = f"{t.employee_name}'s task \"{t.project_name}\" is due today."
+            priority = "High"
+            _create_if_missing('task', msg, priority, {'ref_id': f'deadline_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name})
+        elif t.status == 'Done' and t.updated_at and t.updated_at.date() >= week_ago:
+            title = "Task Completed"
+            msg = f"{t.employee_name} completed \"{t.project_name}\" successfully."
+            priority = "Low"
+            _create_if_missing('task', msg, priority, {'ref_id': f'completed_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name}, created_at=t.updated_at)
+
+    # 3) Productivity record updates
+    edits = db.query(ProductivityEditHistory).filter(ProductivityEditHistory.edited_at >= datetime.datetime.utcnow() - datetime.timedelta(days=7)).order_by(ProductivityEditHistory.edited_at.desc()).all()
+    for e in edits:
+        rec = db.query(ProductivityRecord).filter(ProductivityRecord.id == e.record_id).first()
+        who = db.query(User).filter(User.id == e.user_id).first()
+        who_name = who.employee_name if who else 'System'
+        proj_name = rec.project_name if rec else str(e.record_id)
+        
+        try:
+            newv = _json.loads(e.new_values or "{}")
+        except Exception:
+            newv = {}
+            
+        doc_fields = ['drive_link', 'harddisk_directory', 'resume_path', 'aadhaar_front_path', 'aadhaar_back_path', 'certificates_path']
+        if any(f in newv for f in doc_fields):
+            title = "Documents Uploaded"
+            msg = f"{who_name} uploaded documents for \"{proj_name}\"."
+            _create_if_missing('employee', msg, 'Low', {'ref_id': f'doc_{e.id}', 'title': title, 'employee_name': who_name, 'project_name': proj_name}, created_at=e.edited_at)
+        else:
+            title = "Productivity Record Updated"
+            msg = f"{who_name} updated the productivity record for \"{proj_name}\"."
+            _create_if_missing('productivity', msg, 'Medium', {'ref_id': f'edit_{e.id}', 'title': title, 'employee_name': who_name, 'project_name': proj_name}, created_at=e.edited_at)
+
+    # 4) New employee additions
+    new_emps = db.query(User).filter(User.role == 'Employee', User.date_of_joining != None, User.date_of_joining >= week_ago).all()
+    for ne in new_emps:
+        title = "New Employee Added"
+        msg = f"{ne.employee_name} has joined as {ne.position or 'Employee'}."
+        _create_if_missing('employee', msg, 'Low', {'ref_id': f'emp_{ne.id}', 'title': title, 'employee_name': ne.employee_name, 'project_name': ''}, created_at=ne.date_of_joining)
+
+    # 5) Upcoming holidays
+    holidays = db.query(Holiday).filter(Holiday.date >= today, Holiday.date <= today + datetime.timedelta(days=7)).all()
+    for h in holidays:
+        title = "Upcoming Holiday"
+        msg = f"Upcoming holiday is {h.name} on {h.date.isoformat()}."
+        if h.date == today + datetime.timedelta(days=1):
+            msg = f"Tomorrow is {h.name}."
+        _create_if_missing('holiday', msg, 'Low', {'ref_id': f'hol_{h.id}', 'title': title, 'employee_name': '', 'project_name': ''})
+
+    # 6) Attendance Notifications (Today's exceptions)
+    today_att = db.query(Attendance).filter(Attendance.date == today).all()
+    att_by_user = {a.user_id: a for a in today_att}
+    all_emps = db.query(User).filter(User.role == 'Employee').all()
+    
+    shift_start = datetime.datetime.combine(today, datetime.time(9, 0))
+    now_local = datetime.datetime.now()
+
+    for emp in all_emps:
+        att = att_by_user.get(emp.id)
+        if not att:
+            if now_local.hour >= 11:
+                title = "Missed Punch-in"
+                msg = f"{emp.employee_name} has not punched in today."
+                _create_if_missing('attendance', msg, 'High', {'ref_id': f'nopunch_{emp.id}_{today.isoformat()}', 'title': title, 'employee_name': emp.employee_name, 'project_name': ''})
+        else:
+            if att.time_in:
+                try:
+                    t_in = datetime.datetime.strptime(att.time_in, "%I:%M %p").time()
+                    punch_in_dt = datetime.datetime.combine(today, t_in)
+                    if punch_in_dt > shift_start + datetime.timedelta(minutes=15):
+                        late_diff = punch_in_dt - shift_start
+                        late_mins = int(late_diff.total_seconds() / 60)
+                        title = "Late Arrival"
+                        msg = f"{emp.employee_name} arrived late by {late_mins} minutes."
+                        _create_if_missing('attendance', msg, 'Medium', {'ref_id': f'late_{emp.id}_{today.isoformat()}', 'title': title, 'employee_name': emp.employee_name, 'project_name': ''}, created_at=punch_in_dt)
+                    else:
+                        title = "Punched In"
+                        msg = f"{emp.employee_name} punched in at {att.time_in}."
+                        _create_if_missing('attendance', msg, 'Low', {'ref_id': f'punchin_{emp.id}_{today.isoformat()}', 'title': title, 'employee_name': emp.employee_name, 'project_name': ''}, created_at=punch_in_dt)
+                except ValueError:
+                    pass
+            
+            if att.time_out and getattr(att, 'day_type', None) == 'Half Day':
+                try:
+                    t_out = datetime.datetime.strptime(att.time_out, "%I:%M %p").time()
+                    punch_out_dt = datetime.datetime.combine(today, t_out)
+                    title = "Half-Day Punch Out"
+                    msg = f"{emp.employee_name} punched out with Half-Day attendance."
+                    _create_if_missing('attendance', msg, 'Medium', {'ref_id': f'halfday_{emp.id}_{today.isoformat()}', 'title': title, 'employee_name': emp.employee_name, 'project_name': ''}, created_at=punch_out_dt)
+                except ValueError:
+                    pass
+
+    db.commit()
+
+    notes = db.query(Notification).order_by(Notification.created_at.desc()).all()
+    out = []
+    for n in notes:
+        out.append({
+            'id': n.id,
+            'message': n.message,
+            'priority': n.priority,
+            'is_read': n.is_read
+        })
+    return {'notifications': out}
+
+
+class MarkReq(BaseModel):
+    id: int
+    is_read: bool
+
+
+@router.post('/notifications/mark')
+async def mark_notification(req: MarkReq, user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    n = db.query(Notification).filter(Notification.id == req.id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail='Notification not found')
+    n.is_read = bool(req.is_read)
+    db.commit()
+    return {'message': 'Updated'}
 
 @router.put("/settings")
 async def update_admin_settings(
@@ -332,7 +522,10 @@ async def get_performance_data(
     end_date: str = "",
     department: str = "",
     designation: str = "",
-    employee_id: str = ""
+    employee_id: str = "",
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
 ):
     today = datetime.date.today()
     
@@ -353,6 +546,12 @@ async def get_performance_data(
     
     # Attendance Today
     today_attendance = db.query(Attendance).filter(Attendance.date == today, Attendance.user_id.in_(emp_ids)).all()
+    if year is not None:
+        today_attendance = [a for a in today_attendance if a.date and a.date.year == year]
+    if month is not None:
+        today_attendance = [a for a in today_attendance if a.date and a.date.month == month]
+    if day is not None:
+        today_attendance = [a for a in today_attendance if a.date and a.date.day == day]
     present_today = len([a for a in today_attendance if a.status == "Present"])
     late_today = len([a for a in today_attendance if a.status == "Late"])
     absent_today = len([a for a in today_attendance if a.status == "Absent"])
@@ -360,10 +559,22 @@ async def get_performance_data(
     # Task queries
     tasks_query = db.query(ProductivityRecord).filter(ProductivityRecord.user_id.in_(emp_ids))
     if start_date and end_date:
-        # Note: dates might need to be cast or just string comparison if they are ISO strings
         tasks_query = tasks_query.filter(ProductivityRecord.date >= start_date, ProductivityRecord.date <= end_date)
+    elif year is not None or month is not None or day is not None:
+        if year is not None:
+            tasks_query = tasks_query.filter(ProductivityRecord.date != None)
+        if month is not None:
+            tasks_query = tasks_query.filter(ProductivityRecord.date != None)
+        if day is not None:
+            tasks_query = tasks_query.filter(ProductivityRecord.date != None)
     
     all_tasks = tasks_query.all()
+    if year is not None:
+        all_tasks = [t for t in all_tasks if t.date and t.date.year == year]
+    if month is not None:
+        all_tasks = [t for t in all_tasks if t.date and t.date.month == month]
+    if day is not None:
+        all_tasks = [t for t in all_tasks if t.date and t.date.day == day]
     
     tasks_assigned_today = len([t for t in all_tasks if t.date == today])
     tasks_completed_today = len([t for t in all_tasks if t.status == "Done" and t.date == today])
@@ -395,6 +606,12 @@ async def get_performance_data(
         ed = today
         
     att_records = db.query(Attendance).filter(Attendance.date >= sd, Attendance.date <= ed, Attendance.user_id.in_(emp_ids)).all()
+    if year is not None:
+        att_records = [a for a in att_records if a.date and a.date.year == year]
+    if month is not None:
+        att_records = [a for a in att_records if a.date and a.date.month == month]
+    if day is not None:
+        att_records = [a for a in att_records if a.date and a.date.day == day]
     
     for emp in employees:
         emp_tasks = [t for t in all_tasks if t.user_id == emp.id]
@@ -454,7 +671,59 @@ async def get_performance_data(
     
     chart_tasks_names = [e["name"] for e in employee_performance[:10]]
     chart_tasks_data = [e["completed"] for e in employee_performance[:10]]
-    
+
+    # ── Performance Trend (last 6 months, per employee) ──────────────────────
+    # Fetch ALL tasks and attendance for all matching employees across last 6 months
+    trend_start = (today.replace(day=1) - datetime.timedelta(days=5 * 28)).replace(day=1)
+    all_trend_tasks = db.query(ProductivityRecord).filter(
+        ProductivityRecord.user_id.in_(emp_ids),
+        ProductivityRecord.date >= trend_start
+    ).all()
+    all_trend_att = db.query(Attendance).filter(
+        Attendance.user_id.in_(emp_ids),
+        Attendance.date >= trend_start
+    ).all()
+
+    # Build 6-month labels
+    trend_month_labels = []
+    trend_month_ranges = []
+    for i in range(5, -1, -1):
+        m_date = today.replace(day=1) - datetime.timedelta(days=i * 28)
+        m_start = m_date.replace(day=1)
+        if m_date.month == 12:
+            m_end = m_date.replace(day=31)
+        else:
+            m_end = (m_date.replace(month=m_date.month + 1, day=1) - datetime.timedelta(days=1))
+        trend_month_labels.append(m_date.strftime("%b %Y"))
+        trend_month_ranges.append((m_start, m_end))
+
+    # Per-employee trend datasets
+    trend_datasets = []
+    # Palette of distinct colors for multiple employees
+    palette = [
+        "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+        "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16"
+    ]
+    for idx, emp in enumerate(employees):
+        emp_trend_data = []
+        for (m_start, m_end) in trend_month_ranges:
+            m_tasks = [t for t in all_trend_tasks if t.user_id == emp.id and t.date and m_start <= t.date <= m_end]
+            m_done  = len([t for t in m_tasks if t.status in ("Done", "Completed")])
+            m_att   = [a for a in all_trend_att if a.user_id == emp.id and m_start <= a.date <= m_end]
+            m_present = len([a for a in m_att if a.status in ("Present", "Late", "Half Day")])
+            m_att_pct  = (m_present / len(m_att) * 100) if m_att else 100
+            m_comp_pct = (m_done / len(m_tasks) * 100) if m_tasks else 100
+            m_score = round(m_comp_pct * 0.6 + m_att_pct * 0.4, 1)
+            emp_trend_data.append(m_score)
+        color = palette[idx % len(palette)]
+        trend_datasets.append({
+            "emp_id": emp.id,
+            "name": emp.employee_name,
+            "data": emp_trend_data,
+            "color": color
+        })
+    # ─────────────────────────────────────────────────────────────────────────
+
     return {
         "summary": {
             "total_employees": total_employees,
@@ -499,6 +768,10 @@ async def get_performance_data(
                 "labels": ["Present", "Late", "Absent"],
                 "data": [present_today, late_today, absent_today]
             }
+        },
+        "trend": {
+            "labels": trend_month_labels,
+            "datasets": trend_datasets
         }
     }
 
@@ -637,7 +910,89 @@ async def export_attendance_csv(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# WORK FROM HOME REQUESTS (Admin)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class WFHActionRequest(BaseModel):
+    action: str  # "Approve" or "Reject"
+
+@router.get("/wfh-requests")
+async def get_wfh_requests(
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    status_filter: str = ""
+):
+    """Return all WFH requests, pending first then by date desc."""
+    query = db.query(LeaveRequest).filter(LeaveRequest.leave_type == "Work From Home")
+    if status_filter:
+        query = query.filter(LeaveRequest.status == status_filter)
+    requests = query.order_by(LeaveRequest.status.asc(), LeaveRequest.start_date.desc()).all()
+    emp_map = {u.id: u for u in db.query(User).filter(User.role == "Employee").all()}
+    result = []
+    for r in requests:
+        emp = emp_map.get(r.user_id)
+        result.append({
+            "id": r.id,
+            "employee_name": emp.employee_name if emp else "Unknown",
+            "employee_code": emp.employee_code if emp else "-",
+            "department": emp.department if emp else "-",
+            "date": r.start_date.isoformat(),
+            "reason": r.reason,
+            "status": r.status,
+        })
+    pending_count = len([r for r in result if r["status"] == "Pending"])
+    return {"requests": result, "pending_count": pending_count}
+
+@router.put("/wfh-requests/{req_id}/action")
+async def action_wfh_request(
+    req_id: int,
+    body: WFHActionRequest,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Approve or Reject a WFH request and create a notification."""
+    if body.action not in ("Approve", "Reject"):
+        raise HTTPException(status_code=400, detail="Action must be 'Approve' or 'Reject'.")
+    wfh = db.query(LeaveRequest).filter(
+        LeaveRequest.id == req_id,
+        LeaveRequest.leave_type == "Work From Home"
+    ).first()
+    if not wfh:
+        raise HTTPException(status_code=404, detail="WFH request not found.")
+    if wfh.status != "Pending":
+        raise HTTPException(status_code=400, detail=f"This request is already {wfh.status}.")
+
+    new_status = "Approved" if body.action == "Approve" else "Rejected"
+    wfh.status = new_status
+    wfh.approved_by = user.id
+
+    # Create notification
+    emp = db.query(User).filter(User.id == wfh.user_id).first()
+    emp_name = emp.employee_name if emp else "Employee"
+    msg = (
+        f"Your Work From Home request for {wfh.start_date.isoformat()} has been {new_status.lower()}."
+    )
+    priority = "Low" if new_status == "Approved" else "Medium"
+    notif = Notification(
+        type="wfh",
+        message=msg,
+        priority=priority,
+        meta_data=_json.dumps({
+            "ref_id": f"wfh_{wfh.id}_{new_status}",
+            "title": f"WFH {new_status}",
+            "employee_name": emp_name,
+            "project_name": ""
+        }),
+        created_at=datetime.datetime.utcnow()
+    )
+    db.add(notif)
+    db.commit()
+    return {"message": f"WFH request {new_status.lower()} successfully."}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TASK MANAGEMENT
+
 # ══════════════════════════════════════════════════════════════════════════════
 
 class AdminTaskCreate(BaseModel):
@@ -863,6 +1218,13 @@ async def approve_leave(
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
     leave.status = "Approved"
+    notif = Notification(
+        type="leave",
+        message=f"{leave.user_id}'s leave request from {leave.start_date.isoformat()} to {leave.end_date.isoformat()} was approved.",
+        priority="Low",
+        created_at=datetime.datetime.utcnow()
+    )
+    db.add(notif)
     db.commit()
     return {"message": "Leave approved"}
 
@@ -877,6 +1239,13 @@ async def reject_leave(
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
     leave.status = "Rejected"
+    notif = Notification(
+        type="leave",
+        message=f"{leave.user_id}'s leave request from {leave.start_date.isoformat()} to {leave.end_date.isoformat()} was rejected.",
+        priority="Medium",
+        created_at=datetime.datetime.utcnow()
+    )
+    db.add(notif)
     db.commit()
     return {"message": "Leave rejected"}
 
@@ -967,7 +1336,7 @@ async def admin_get_holidays(
             "id": h.id,
             "name": h.name,
             "date": h.date.isoformat(),
-            "day": h.day or h.date.strftime("%A"),
+            "day": h.date.strftime("%A"),
             "description": h.description or "",
             "holiday_type": h.holiday_type,
             "is_active": h.is_active,

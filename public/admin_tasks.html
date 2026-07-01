@@ -6,7 +6,7 @@
     <title>Task Management | Blink Once Admin</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         .admin-nav-secondary {
             display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;
@@ -354,5 +354,6 @@ document.getElementById('confirm-delete-btn').addEventListener('click', async ()
 
 async function logout() { await fetch('/api/logout',{method:'POST'}); location.href='/login'; }
 </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

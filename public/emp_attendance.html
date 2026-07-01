@@ -6,7 +6,7 @@
     <title>Attendance & To-Do | Blink Once EPS</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         body { display: flex; flex-direction: row; min-height: 100vh; overflow-x: hidden; }
         body::before { display: none; }
@@ -94,6 +94,18 @@
         .alert-msg { padding:1rem 1.25rem; border-radius:10px; font-size:0.9rem; display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem; }
         .alert-err  { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
         .alert-ok   { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
+
+        /* WFH styles */
+        .wfh-banner { display:flex; align-items:center; gap:0.75rem; padding:1rem 1.25rem; border-radius:12px; margin-bottom:1.25rem; font-size:0.9rem; font-weight:500; }
+        .wfh-banner-approved { background:linear-gradient(135deg,rgba(5,150,105,0.08),rgba(16,185,129,0.06)); border:1px solid rgba(5,150,105,0.25); color:#059669; }
+        .wfh-banner-pending  { background:rgba(217,119,6,0.07); border:1px solid rgba(217,119,6,0.25); color:#d97706; }
+        .wfh-banner-rejected { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#dc2626; }
+        .wfh-banner i { font-size:1.25rem; flex-shrink:0; }
+        .wfh-card { padding:1.25rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:0.75rem; display:flex; align-items:center; gap:1rem; }
+        .wfh-card-icon { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+        .wfh-approved { background:rgba(5,150,105,0.1); color:#059669; }
+        .wfh-pending  { background:rgba(217,119,6,0.1);  color:#d97706; }
+        .wfh-rejected { background:rgba(220,38,38,0.1);  color:#dc2626; }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     </style>
@@ -134,7 +146,7 @@
             <div class="sub-tabs">
                 <button class="tab-btn active" onclick="switchTab('attendance', this)"><i class="fa-solid fa-fingerprint"></i> Attendance</button>
                 <button class="tab-btn" onclick="switchTab('todo', this)"><i class="fa-solid fa-list-check"></i> To-Do List</button>
-                <button class="tab-btn" onclick="switchTab('deadlines', this)"><i class="fa-solid fa-triangle-exclamation"></i> Upcoming Deadlines</button>
+                <button class="tab-btn" onclick="switchTab('wfh', this)"><i class="fa-solid fa-house-laptop"></i> Work From Home <span id="wfh-pending-badge" style="display:none;background:#f59e0b;color:white;border-radius:10px;padding:0 6px;font-size:0.7rem;margin-left:2px;"></span></button>
                 <button class="tab-btn" onclick="switchTab('history', this)"><i class="fa-solid fa-calendar-days"></i> Attendance History</button>
             </div>
 
@@ -144,6 +156,23 @@
                     <div class="punch-card">
                         <h3 style="margin-bottom:0.5rem;"><i class="fa-solid fa-location-dot" style="color:var(--accent-primary)"></i> GPS Attendance</h3>
                         <p style="color:var(--text-secondary);font-size:0.87rem;margin-bottom:1rem;">Your location is verified before punch-in/out. Ensure location access is enabled.</p>
+
+                        <!-- WFH Active Banner (shown when WFH approved) -->
+                        <div id="wfh-active-banner" style="display:none;" class="wfh-banner wfh-banner-approved">
+                            <i class="fa-solid fa-house-laptop"></i>
+                            <div>
+                                <strong>Working from Home Today</strong>
+                                <div style="font-size:0.82rem;opacity:0.85;margin-top:0.1rem;">GPS location check is bypassed. Punch in and out freely.</div>
+                            </div>
+                        </div>
+                        <!-- WFH Pending Banner -->
+                        <div id="wfh-pending-banner" style="display:none;" class="wfh-banner wfh-banner-pending">
+                            <i class="fa-solid fa-clock"></i>
+                            <div>
+                                <strong>WFH Request Pending</strong>
+                                <div style="font-size:0.82rem;opacity:0.85;margin-top:0.1rem;">Your Work From Home request for today is awaiting admin approval. GPS is still required.</div>
+                            </div>
+                        </div>
 
                         <div id="gps-status" class="gps-info">
                             <i class="fa-solid fa-satellite-dish"></i> Detecting your location…
@@ -212,26 +241,34 @@
                 </div>
             </div>
 
-            <!-- === DEADLINES TAB === -->
-            <div id="tab-deadlines" class="tab-content">
+            <!-- === WORK FROM HOME TAB === -->
+            <div id="tab-wfh" class="tab-content">
+                <!-- WFH Request Form -->
+                <div class="glass-panel" style="padding:1.75rem;margin-bottom:1.5rem;">
+                    <h3 class="mb-3"><i class="fa-solid fa-house-laptop" style="color:var(--accent-primary)"></i> Request Work From Home</h3>
+                    <div id="wfh-form-alert" style="display:none;" class="alert-msg alert-err"><i class="fa-solid fa-circle-xmark"></i><span id="wfh-form-alert-text"></span></div>
+                    <div id="wfh-form-success" style="display:none;" class="alert-msg alert-ok"><i class="fa-solid fa-circle-check"></i><span id="wfh-form-success-text"></span></div>
+                    <form id="wfh-form">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                            <div class="form-group">
+                                <label class="required">Date</label>
+                                <input type="date" id="wfh-date" class="form-control" required>
+                            </div>
+                            <div class="form-group" style="grid-column:1/-1;">
+                                <label class="required">Reason for Working from Home</label>
+                                <textarea id="wfh-reason" class="form-control" rows="3" placeholder="E.g., Internet issues at office, medical appointment, personal emergency…" required></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="wfh-submit-btn">
+                            <i class="fa-solid fa-paper-plane"></i> Submit WFH Request
+                        </button>
+                    </form>
+                </div>
+
+                <!-- WFH History -->
                 <div class="glass-panel" style="padding:1.5rem;">
-                    <h3 class="mb-3"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Upcoming Deadlines</h3>
-                    <div id="dl-overdue-section" style="display:none;">
-                        <h4 style="color:var(--danger);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-fire"></i> Overdue</h4>
-                        <div id="dl-overdue"></div>
-                    </div>
-                    <div id="dl-today-section" style="display:none;margin-top:1rem;">
-                        <h4 style="color:var(--warning);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-clock"></i> Due Today</h4>
-                        <div id="dl-today"></div>
-                    </div>
-                    <div id="dl-upcoming-section" style="display:none;margin-top:1rem;">
-                        <h4 style="color:var(--info);margin-bottom:0.75rem;font-size:0.9rem;"><i class="fa-solid fa-calendar-check"></i> Upcoming</h4>
-                        <div id="dl-upcoming"></div>
-                    </div>
-                    <div id="dl-empty" style="color:var(--text-secondary);text-align:center;padding:3rem 0;">
-                        <i class="fa-solid fa-check-circle" style="font-size:2.5rem;color:var(--success);margin-bottom:0.75rem;display:block;"></i>
-                        No upcoming deadlines. Great job! 🎉
-                    </div>
+                    <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary)"></i> My WFH Request History</h3>
+                    <div id="wfh-history-list"><div style="color:var(--text-secondary);text-align:center;padding:2rem 0;">Loading…</div></div>
                 </div>
             </div>
 
@@ -283,6 +320,7 @@
     <script>
         let currentLat = null, currentLon = null, allTasks = [], todayAtt = null;
         let pendingPunchOutHours = 0;
+        let wfhApprovedToday = false;
 
         document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
@@ -306,9 +344,11 @@
 
             await loadOfficeLocation();
             detectGPS();
+            await loadWfhStatus();  // must come before loadAttendance to update UI
             await loadAttendance();
             await loadTasks();
             await loadHistory();
+            await loadWfhHistory();
         });
 
         function switchTab(name, btn) {
@@ -330,8 +370,32 @@
         }
 
         function detectGPS() {
+            if (wfhApprovedToday) return;  // skip GPS message if WFH active
             document.getElementById('gps-status').innerHTML =
                 `<i class="fa-solid fa-location-dot" style="color:var(--accent-primary)"></i> The office location is set to ${window.officeLocationName || 'your configured office'}. Location is required before punching in or out.`;
+        }
+
+        async function loadWfhStatus() {
+            try {
+                const res = await fetch('/api/employee/wfh/status');
+                if (!res.ok) return;
+                const data = await res.json();
+                wfhApprovedToday = data.wfh_today;
+
+                if (data.wfh_status === 'Approved') {
+                    document.getElementById('wfh-active-banner').style.display = 'flex';
+                    document.getElementById('gps-status').style.display = 'none';
+                    // Update page subtitle
+                    document.querySelector('.punch-card p').innerHTML =
+                        '<i class="fa-solid fa-house-laptop" style="color:#059669"></i> You are approved to work from home today. GPS check is not required.';
+                } else if (data.wfh_status === 'Pending') {
+                    document.getElementById('wfh-pending-banner').style.display = 'flex';
+                    // Show pending badge on WFH tab
+                    const badge = document.getElementById('wfh-pending-badge');
+                    badge.textContent = '1';
+                    badge.style.display = 'inline';
+                }
+            } catch(e) { /* silent */ }
         }
 
         function requestLocation() {
@@ -382,17 +446,23 @@
             showAlert('', false);
             const btn = document.getElementById('btn-punchin');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
 
-            const location = await requestLocation();
-            if (!location) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Punch In';
-                return;
+            let location = null;
+            if (wfhApprovedToday) {
+                // WFH approved — skip GPS
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching In…';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
+                location = await requestLocation();
+                if (!location) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Punch In';
+                    return;
+                }
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching In…';
             }
 
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching In…';
-            const body = { latitude: location.latitude, longitude: location.longitude };
+            const body = location ? { latitude: location.latitude, longitude: location.longitude } : {};
             const res = await fetch('/api/employee/attendance/punch-in', {
                 method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
             });
@@ -428,17 +498,24 @@
 
             const btn = document.getElementById('btn-punchout');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
 
-            const location = await requestLocation();
-            if (!location) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Punch Out';
-                return;
+            let location = null;
+            if (wfhApprovedToday) {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Location…';
+                location = await requestLocation();
+                if (!location) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Punch Out';
+                    return;
+                }
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
             }
 
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Punching Out…';
-            const body = { latitude: location.latitude, longitude: location.longitude, half_day_reason: reason || null };
+            const body = location
+                ? { latitude: location.latitude, longitude: location.longitude, half_day_reason: reason || null }
+                : { half_day_reason: reason || null };
             const res = await fetch('/api/employee/attendance/punch-out', {
                 method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
             });
@@ -479,7 +556,6 @@
             const data = await res.json();
             allTasks = data.records;
             renderTasks();
-            renderDeadlines();
         }
 
         function renderTasks() {
@@ -536,37 +612,6 @@
             }
         }
 
-        function renderDeadlines() {
-            const today = new Date(); today.setHours(0,0,0,0);
-            const tmrw = new Date(today); tmrw.setDate(tmrw.getDate()+1);
-
-            const overdue = [], dueToday = [], upcoming = [];
-            allTasks.forEach(t => {
-                if (!t.deadline_date || t.status === 'Done') return;
-                const dl = new Date(t.deadline_date); dl.setHours(0,0,0,0);
-                if (dl < today) overdue.push(t);
-                else if (dl.getTime() === today.getTime()) dueToday.push(t);
-                else upcoming.push(t);
-            });
-
-            const renderCard = (t, cls) => {
-                const dl = t.deadline_date;
-                return `<div class="task-card ${cls}" style="margin-bottom:0.6rem;">
-                    <i class="fa-solid fa-calendar-days" style="color:var(--accent-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-                    <div class="task-meta">
-                        <div class="task-name">${t.project_name}</div>
-                        <div class="task-sub">${t.client_name} · Deadline: ${dl}</div>
-                    </div>
-                    <span class="badge badge-${(t.priority||'').toLowerCase()}">${t.priority}</span>
-                </div>`;
-            };
-
-            document.getElementById('dl-empty').style.display = (overdue.length+dueToday.length+upcoming.length === 0) ? 'block' : 'none';
-            if (overdue.length) { document.getElementById('dl-overdue-section').style.display='block'; document.getElementById('dl-overdue').innerHTML=overdue.map(t=>renderCard(t,'overdue')).join(''); }
-            if (dueToday.length) { document.getElementById('dl-today-section').style.display='block'; document.getElementById('dl-today').innerHTML=dueToday.map(t=>renderCard(t,'due-today')).join(''); }
-            if (upcoming.length) { document.getElementById('dl-upcoming-section').style.display='block'; document.getElementById('dl-upcoming').innerHTML=upcoming.map(t=>renderCard(t,'upcoming')).join(''); }
-        }
-
         async function loadHistory() {
             const month = document.getElementById('hist-month').value;
             const res = await fetch(`/api/employee/attendance/history?month=${month}`);
@@ -600,10 +645,77 @@
             }).join('');
         }
 
+        async function loadWfhHistory() {
+            const res = await fetch('/api/employee/wfh/history');
+            if (!res.ok) return;
+            const data = await res.json();
+            const container = document.getElementById('wfh-history-list');
+            if (!data.requests.length) {
+                container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:2rem 0;">No WFH requests yet.</div>';
+                return;
+            }
+            const statusIcons = {
+                'Approved': { icon: 'fa-check-circle', cls: 'wfh-approved', badge: 'badge-approved' },
+                'Pending':  { icon: 'fa-clock',        cls: 'wfh-pending',  badge: 'badge-pending' },
+                'Rejected': { icon: 'fa-xmark-circle', cls: 'wfh-rejected', badge: 'badge-rejected' },
+            };
+            container.innerHTML = data.requests.map(r => {
+                const s = statusIcons[r.status] || statusIcons['Pending'];
+                return `<div class="wfh-card">
+                    <div class="wfh-card-icon ${s.cls}"><i class="fa-solid ${s.icon}"></i></div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600;font-size:0.9rem;">${r.date}</div>
+                        <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.15rem;">${r.reason}</div>
+                    </div>
+                    <span class="badge ${s.badge}" style="font-size:0.75rem;">${r.status}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // WFH form submission
+        document.getElementById('wfh-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const dateVal = document.getElementById('wfh-date').value;
+            const reason  = document.getElementById('wfh-reason').value.trim();
+            document.getElementById('wfh-form-alert').style.display = 'none';
+            document.getElementById('wfh-form-success').style.display = 'none';
+            if (!dateVal || !reason) return;
+
+            const btn = document.getElementById('wfh-submit-btn');
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+
+            const res = await fetch('/api/employee/wfh/apply', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ date: dateVal, reason })
+            });
+            const data = await res.json();
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit WFH Request';
+
+            if (res.ok) {
+                document.getElementById('wfh-form-success-text').textContent = data.message;
+                document.getElementById('wfh-form-success').style.display = 'flex';
+                document.getElementById('wfh-form').reset();
+                await loadWfhHistory();
+                await loadWfhStatus();
+            } else {
+                document.getElementById('wfh-form-alert-text').textContent = data.detail || 'Failed to submit.';
+                document.getElementById('wfh-form-alert').style.display = 'flex';
+            }
+        });
+
+        // Pre-fill WFH date to today
+        document.addEventListener('DOMContentLoaded', () => {
+            const wfhDateInput = document.getElementById('wfh-date');
+            if (wfhDateInput) wfhDateInput.value = new Date().toISOString().split('T')[0];
+        });
+
         // Shared badge classes
         const badgeMap = {present:'badge-present',absent:'badge-absent','half day':'badge-halfday'};
+        const badgeApproved = 'badge-approved', badgePending = 'badge-pending', badgeRejected = 'badge-rejected';
 
         async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

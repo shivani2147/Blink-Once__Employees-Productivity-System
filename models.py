@@ -149,7 +149,6 @@ class Holiday(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     date = Column(Date, nullable=False)
-    day = Column(String(20))                               # e.g., Monday
     description = Column(Text, nullable=True)
     holiday_type = Column(String(50), default="National")  # National, Company, Optional
     is_active = Column(Boolean, default=True)
@@ -164,3 +163,16 @@ class OfficeLocation(Base):
     longitude = Column(Float, nullable=False)
     radius_meters = Column(Integer, default=100)  # allowed punch-in/out radius
     is_active = Column(Boolean, default=True)
+
+
+class Notification(Base):
+    """Admin-visible notifications for system events."""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String(100))  # e.g., leave, overdue_task, completed_task, deadline, record_update, new_employee, document_update, holiday
+    message = Column(Text, nullable=False)
+    priority = Column(String(20), default="Low")  # High, Medium, Low
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    is_read = Column(Boolean, default=False)
+    meta_data = Column(Text, nullable=True)  # JSON string with extra info (ref ids etc.)

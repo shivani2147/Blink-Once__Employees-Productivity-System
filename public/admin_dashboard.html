@@ -8,13 +8,45 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
-        .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
-        .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
-        .admin-nav-secondary a{padding:0.4rem 0.9rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;text-decoration:none;}
-        .admin-nav-secondary a:hover{background:rgba(79,70,229,0.08);color:var(--accent-primary);}
-        .admin-nav-secondary a.active{background:rgba(79,70,229,0.12);color:var(--accent-primary);}
+        .admin-nav-secondary {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding: 0.75rem 2.5rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+
+        .dark-theme .admin-nav-secondary {
+            background: rgba(17, 24, 39, 0.4);
+        }
+
+        .admin-nav-secondary a {
+            padding: 0.4rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .admin-nav-secondary a:hover {
+            background: rgba(79, 70, 229, 0.08);
+            color: var(--accent-primary);
+        }
+
+        .admin-nav-secondary a.active {
+            background: rgba(79, 70, 229, 0.12);
+            color: var(--accent-primary);
+        }
     </style>
 </head>
 
@@ -25,8 +57,10 @@
         </div>
         <div class="nav-links">
             <span class="user-greeting">Hello, <strong id="nav-user-name">Admin</strong></span>
-            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
-            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+            <button class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle theme"><i
+                    class="fa-solid fa-moon"></i></button>
+            <a href="#" onclick="logout()" class="btn btn-primary btn-sm"><i
+                    class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
         </div>
     </nav>
 
@@ -71,11 +105,45 @@
         </div>
 
         <div class="grid-2 mb-4">
-            <div class="glass-panel p-4" style="padding: 1.5rem;">
-                <h3 class="mb-3">Task Duration</h3>
-                <p class="text-secondary mb-3" style="font-size: 0.9rem;">Estimated number of days taken to complete
-                    tasks based on camera usage.</p>
-                <canvas id="cameraChart" height="200"></canvas>
+            <div class="glass-panel p-4" style="padding: 1.5rem; max-height:360px; overflow:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                    <h3 style="margin:0;display:flex;align-items:center;gap:0.5rem;"><span
+                            style="color:#d97706; font-size: 1.2rem;">🔔</span> Notifications</h3>
+                    <span id="notif-count-badge"
+                        style="background-color:#eff6ff;color:#3b82f6;padding:0.25rem 0.8rem;border-radius:9999px;font-size:0.875rem;font-weight:600;border:1px solid #bfdbfe;">0</span>
+                </div>
+                <div id="notif-list" style="display:flex;flex-direction:column;gap:0.75rem; white-space: normal;"></div>
+                <style>
+                    .notif-item {
+                        padding: 1rem 1.2rem;
+                        border-radius: 8px;
+                        border: 1px solid #e0e7ff;
+                        background-color: #f8fafc;
+                        word-break: break-word;
+                        white-space: normal;
+                        color: #374151;
+                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+                        transition: all 0.2s ease;
+                        cursor: pointer;
+                    }
+
+                    .notif-item:hover {
+                        border-color: #c7d2fe;
+                        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.05);
+                    }
+
+                    .notif-item.read {
+                        background-color: #ffffff;
+                        border-color: #e5e7eb;
+                        opacity: 0.85;
+                        border-left: 1px solid #e5e7eb;
+                    }
+
+                    .notif-item.unread {
+                        background-color: #f8fafc;
+                        border-left: 4px solid #3b82f6;
+                    }
+                </style>
             </div>
 
             <div class="glass-panel p-4" style="padding: 1.5rem;">
@@ -107,7 +175,29 @@
                             </select>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">
+                    <div class="grid-2 mb-2">
+                        <div class="form-group">
+                            <label>Year</label>
+                            <select name="year_filter" id="year_filter" class="form-control"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Month</label>
+                            <select name="month_filter" id="month_filter" class="form-control">
+                                <option value="">All</option>
+                                <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                                <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                                <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                                <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid-2 mb-2">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="number" name="day_filter" id="day_filter" class="form-control" min="1" max="31" placeholder="1-31">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="fetchData()">
                         <i class="fa-solid fa-filter"></i> Apply Filters
                     </button>
                     <button type="button" class="btn btn-outline" style="margin-left: 0.5rem;"
@@ -157,6 +247,16 @@
     <script>
         let myChart = null;
 
+        function populateAdminYearFilter() {
+            const select = document.getElementById('year_filter');
+            select.innerHTML = '<option value="">All</option>';
+            const option = document.createElement('option');
+            option.value = '2026';
+            option.textContent = '2026';
+            select.appendChild(option);
+            select.value = '2026';
+        }
+
         document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const meRes = await fetch('/api/auth/me');
@@ -168,7 +268,9 @@
                 window.location.href = '/login'; return;
             }
 
+            populateAdminYearFilter();
             fetchData();
+            fetchNotifications();
         });
 
         document.getElementById('filter-form').addEventListener('submit', (e) => {
@@ -178,6 +280,7 @@
 
         function clearFilters() {
             document.getElementById('filter-form').reset();
+            populateAdminYearFilter();
             fetchData();
         }
 
@@ -186,12 +289,18 @@
             const cliF = document.getElementById('client_filter').value;
             const proF = document.getElementById('project_filter').value;
             const staF = document.getElementById('status_filter').value;
+            const yearF = document.getElementById('year_filter').value;
+            const monthF = document.getElementById('month_filter').value;
+            const dayF = document.getElementById('day_filter').value;
 
             const params = new URLSearchParams();
             if (empF) params.append('employee_filter', empF);
             if (cliF) params.append('client_filter', cliF);
             if (proF) params.append('project_filter', proF);
             if (staF) params.append('status_filter', staF);
+            if (yearF) params.append('year', yearF);
+            if (monthF) params.append('month', monthF);
+            if (dayF) params.append('day', dayF);
 
             const res = await fetch('/api/admin/data?' + params.toString());
             const data = await res.json();
@@ -291,11 +400,62 @@
             }
         }
 
+        /* ── Notifications ── */
+        async function fetchNotifications(forceRefresh = false) {
+            try {
+                const res = await fetch('/api/admin/notifications');
+                if (!res.ok) return;
+                const data = await res.json();
+                renderNotifications(data.notifications || []);
+            } catch (e) { console.error('Notifications load error', e); }
+        }
+
+        function timeAgo(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours} hr${diffHours !== 1 ? 's' : ''} ago`;
+            const diffDays = Math.floor(diffHours / 24);
+            return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+        }
+
+        function renderNotifications(items) {
+            const el = document.getElementById('notif-list');
+            const countBadge = document.getElementById('notif-count-badge');
+            if (countBadge) countBadge.textContent = items.filter(i => !i.is_read).length;
+            if (!items.length) { el.innerHTML = '<div class="text-secondary" style="padding:1rem;">No notifications</div>'; return; }
+            el.innerHTML = items.map(n => {
+                let priorityName = n.priority || 'Low';
+                return `
+                    <div class="notif-item ${n.is_read ? 'read' : 'unread'}" data-id="${n.id}" onclick="markNotificationRead(${n.id})" style="margin-bottom:0.5rem;">
+                        <strong>${priorityName}:</strong> ${n.message}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function markNotificationRead(id) {
+            try {
+                const res = await fetch('/api/admin/notifications/mark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                if (res.ok) { fetchNotifications(); }
+            } catch (e) { }
+        }
+
         async function logout() {
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login';
         }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 
 </html>

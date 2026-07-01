@@ -14,7 +14,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const navLinks = document.querySelector(".nav-links");
-    if (!navLinks) return;
+    // Global function to allow hardcoded buttons (e.g., in Employee Portal) to trigger theme toggle
+    window.toggleTheme = function() {
+        const isDark = document.body.classList.toggle("dark-theme");
+        document.documentElement.classList.toggle("dark-theme", isDark);
+        const newTheme = isDark ? "dark" : "light";
+        localStorage.setItem("theme", newTheme);
+        
+        // Update all theme toggle icons across the UI
+        document.querySelectorAll('button[onclick="toggleTheme()"] i, #theme-toggle i').forEach(icon => {
+            if(icon.classList.contains('fa-sun') || icon.classList.contains('fa-moon')) {
+                icon.className = isDark ? "fa-solid fa-sun" : "fa-solid fa-moon";
+            }
+        });
+    };
+
+    if (!navLinks) {
+        // If there are no nav-links, update the icon of any hardcoded toggle buttons immediately based on savedTheme
+        document.querySelectorAll('button[onclick="toggleTheme()"] i').forEach(icon => {
+             if(icon.classList.contains('fa-sun') || icon.classList.contains('fa-moon')) {
+                 icon.className = savedTheme === "light" ? "fa-solid fa-moon" : "fa-solid fa-sun";
+             }
+        });
+        return;
+    }
 
     // Create the theme toggle button
     const toggleBtn = document.createElement("button");
@@ -51,10 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     toggleBtn.addEventListener("click", (e) => {
         e.preventDefault();
-        const isDark = document.body.classList.toggle("dark-theme");
-        document.documentElement.classList.toggle("dark-theme", isDark);
-        const newTheme = isDark ? "dark" : "light";
-        localStorage.setItem("theme", newTheme);
-        icon.className = isDark ? "fa-solid fa-sun" : "fa-solid fa-moon";
+        window.toggleTheme();
     });
 });

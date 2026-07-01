@@ -18,6 +18,21 @@ import shutil
 
 router = APIRouter()
 
+
+def _filter_items_by_period(items, year=None, month=None, day=None):
+    filtered = []
+    for item in items:
+        if not getattr(item, "date", None):
+            continue
+        if year is not None and item.date.year != year:
+            continue
+        if month is not None and item.date.month != month:
+            continue
+        if day is not None and item.date.day != day:
+            continue
+        filtered.append(item)
+    return filtered
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PYDANTIC SCHEMAS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -64,6 +79,10 @@ class RecordUpdate(BaseModel):
 class StatusUpdate(BaseModel):
     status: str
 
+class WFHRequest(BaseModel):
+    date: date
+    reason: str
+
 class LeaveCreate(BaseModel):
     leave_type: str
     start_date: date
@@ -108,6 +127,18 @@ def _get_office_location(db: Session):
     """Return active office location from DB, or None."""
     return db.query(OfficeLocation).filter(OfficeLocation.is_active == True).first()
 
+def _is_wfh_today(db: Session, user_id: int) -> bool:
+    """Returns True if the employee has an approved WFH request for today."""
+    today = date.today()
+    wfh = db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == user_id,
+        LeaveRequest.leave_type == "Work From Home",
+        LeaveRequest.status == "Approved",
+        LeaveRequest.start_date <= today,
+        LeaveRequest.end_date >= today,
+    ).first()
+    return wfh is not None
+
 def _validate_gps(db: Session, lat: Optional[float], lon: Optional[float]) -> tuple[bool, str]:
     """Returns (is_valid, error_message). GPS location is required for punch in/out."""
     if lat is None or lon is None:
@@ -136,7 +167,13 @@ def _validate_gps(db: Session, lat: Optional[float], lon: Optional[float]) -> tu
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/data")
-async def get_dashboard_data(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
+async def get_dashboard_data(
+    user: User = Depends(get_current_employee),
+    db: Session = Depends(get_db),
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
+):
     today = date.today()
 
     # --- Profile Information ---
@@ -173,6 +210,7 @@ async def get_dashboard_data(user: User = Depends(get_current_employee), db: Ses
 
     # --- Tasks ---
     records = db.query(ProductivityRecord).filter(ProductivityRecord.user_id == user.id).all()
+    records = _filter_items_by_period(records, year, month, day)
     today_todo = []
     upcoming_deadlines = []
     notifications = []
@@ -231,6 +269,7 @@ async def get_dashboard_data(user: User = Depends(get_current_employee), db: Ses
         Attendance.date >= thirty_days_ago,
         Attendance.date <= today
     ).all()
+    att_records = _filter_items_by_period(att_records, year, month, day)
     total_att_days = len(att_records)
     present_days = len([a for a in att_records if a.status in ("Present", "Late", "Half Day")])
     attendance_pct = round(present_days / total_att_days * 100, 1) if total_att_days > 0 else 100.0
@@ -280,7 +319,8 @@ async def get_dashboard_data(user: User = Depends(get_current_employee), db: Ses
             "days_count": l.days_count,
         })
         if l.status != "Pending" and l.start_date >= today:
-            notifications.append(f"Your leave request from {l.start_date.isoformat()} was {l.status.lower()}.")
+            req_type = "Work From Home" if l.leave_type == "Work From Home" else "leave"
+            notifications.append(f"Your {req_type} request for {l.start_date.isoformat()} was {l.status.lower()}.")
 
     # Leave balance
     balance = db.query(LeaveBalance).filter(LeaveBalance.user_id == user.id).first()
@@ -342,10 +382,12 @@ async def get_office_location(user: User = Depends(get_current_employee), db: Se
 async def punch_in(req: PunchRequest, user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
     today = date.today()
 
-    # GPS validation
-    valid, err_msg = _validate_gps(db, req.latitude, req.longitude)
-    if not valid:
-        raise HTTPException(status_code=400, detail=err_msg)
+    # Skip GPS if employee has an approved WFH for today
+    wfh_active = _is_wfh_today(db, user.id)
+    if not wfh_active:
+        valid, err_msg = _validate_gps(db, req.latitude, req.longitude)
+        if not valid:
+            raise HTTPException(status_code=400, detail=err_msg)
 
     att = db.query(Attendance).filter(Attendance.user_id == user.id, Attendance.date == today).first()
     if att and att.time_in:
@@ -368,16 +410,18 @@ async def punch_in(req: PunchRequest, user: User = Depends(get_current_employee)
         )
         db.add(att)
     db.commit()
-    return {"message": f"Punched in at {now_str}!", "time_in": now_str}
+    return {"message": f"Punched in at {now_str}!", "time_in": now_str, "wfh": wfh_active}
 
 @router.post("/attendance/punch-out")
 async def punch_out(req: PunchOutRequest, user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
     today = date.today()
 
-    # GPS validation
-    valid, err_msg = _validate_gps(db, req.latitude, req.longitude)
-    if not valid:
-        raise HTTPException(status_code=400, detail=err_msg)
+    # Skip GPS if employee has an approved WFH for today
+    wfh_active = _is_wfh_today(db, user.id)
+    if not wfh_active:
+        valid, err_msg = _validate_gps(db, req.latitude, req.longitude)
+        if not valid:
+            raise HTTPException(status_code=400, detail=err_msg)
 
     att = db.query(Attendance).filter(Attendance.user_id == user.id, Attendance.date == today).first()
     if not att or not att.time_in:
@@ -475,14 +519,88 @@ async def get_attendance_history(
     }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# WORK FROM HOME REQUESTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/wfh/status")
+async def get_wfh_status(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
+    """Return today's WFH request status for the logged-in employee."""
+    today = date.today()
+    wfh = db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == user.id,
+        LeaveRequest.leave_type == "Work From Home",
+        LeaveRequest.start_date <= today,
+        LeaveRequest.end_date >= today,
+    ).order_by(LeaveRequest.id.desc()).first()
+    return {
+        "wfh_today": wfh is not None and wfh.status == "Approved",
+        "wfh_status": wfh.status if wfh else None,
+        "wfh_id": wfh.id if wfh else None,
+    }
+
+@router.post("/wfh/apply")
+async def apply_wfh(req: WFHRequest, user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
+    """Submit a Work From Home request for a specific date."""
+    # Check if a WFH request already exists for that date
+    existing = db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == user.id,
+        LeaveRequest.leave_type == "Work From Home",
+        LeaveRequest.start_date <= req.date,
+        LeaveRequest.end_date >= req.date,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A WFH request already exists for {req.date} (Status: {existing.status})."
+        )
+    new_wfh = LeaveRequest(
+        user_id=user.id,
+        start_date=req.date,
+        end_date=req.date,
+        leave_type="Work From Home",
+        reason=req.reason,
+        status="Pending",
+        days_count=1,
+    )
+    db.add(new_wfh)
+    db.commit()
+    return {"message": "Work From Home request submitted successfully!"}
+
+@router.get("/wfh/history")
+async def get_wfh_history(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
+    """Return all WFH requests for the logged-in employee."""
+    requests = db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == user.id,
+        LeaveRequest.leave_type == "Work From Home",
+    ).order_by(LeaveRequest.start_date.desc()).all()
+    return {
+        "requests": [
+            {
+                "id": r.id,
+                "date": r.start_date.isoformat(),
+                "reason": r.reason,
+                "status": r.status,
+            }
+            for r in requests
+        ]
+    }
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PRODUCTIVITY RECORDS
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/records")
-async def get_records(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
+async def get_records(
+    user: User = Depends(get_current_employee),
+    db: Session = Depends(get_db),
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
+):
     records = db.query(ProductivityRecord).filter(
         ProductivityRecord.user_id == user.id
     ).order_by(ProductivityRecord.id.desc()).all()
+    records = _filter_items_by_period(records, year, month, day)
     result = []
     for r in records:
         edit_count = db.query(ProductivityEditHistory).filter(
@@ -777,7 +895,7 @@ async def get_holidays(user: User = Depends(get_current_employee), db: Session =
             "id": h.id,
             "name": h.name,
             "date": h.date.isoformat(),
-            "day": h.day or h.date.strftime("%A"),
+            "day": h.date.strftime("%A"),
             "description": h.description or "",
             "holiday_type": h.holiday_type,
             "is_past": h.date < today,

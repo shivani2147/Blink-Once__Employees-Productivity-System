@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         /* ── Sidebar Layout ── */
         body { display: flex; flex-direction: row; min-height: 100vh; overflow-x: hidden; }
@@ -257,6 +257,30 @@
                 <div class="welcome-avatar" id="banner-avatar">?</div>
             </div>
 
+            <div class="glass-panel" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
+                    <h3 style="margin:0; font-size:1rem;"><i class="fa-solid fa-filter" style="color:var(--accent-primary);"></i> Filter Records</h3>
+                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:end;">
+                        <div class="form-group" style="margin-bottom:0; min-width:110px;">
+                            <label style="font-size:0.72rem;">Year</label>
+                            <select id="filter-year" class="form-control" style="min-width:100px;"></select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0; min-width:110px;">
+                            <label style="font-size:0.72rem;">Month</label>
+                            <select id="filter-month" class="form-control" style="min-width:100px;">
+                                <option value="">All</option>
+                                <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                                <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                                <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                                <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="loadDashboard()"><i class="fa-solid fa-filter"></i> Apply</button>
+                        <button class="btn btn-outline btn-sm" onclick="clearDateFilters()">Clear</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Stats Row -->
             <div class="stats-grid">
                 <div class="mini-stat">
@@ -382,6 +406,22 @@
         document.getElementById('greeting-time').textContent = hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening';
         document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
+        function populateYearFilter() {
+            const select = document.getElementById('filter-year');
+            select.innerHTML = '<option value="">All</option>';
+            const option = document.createElement('option');
+            option.value = '2026';
+            option.textContent = '2026';
+            select.appendChild(option);
+            select.value = '2026';
+        }
+
+        function clearDateFilters() {
+            document.getElementById('filter-year').value = '';
+            document.getElementById('filter-month').value = '';
+            loadDashboard();
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const meRes = await fetch('/api/auth/me');
@@ -390,11 +430,17 @@
                 if (me.role === 'Admin') { window.location.href = '/admin/dashboard'; return; }
             } catch(e) { window.location.href = '/login'; return; }
 
+            populateYearFilter();
             await loadDashboard();
         });
 
         async function loadDashboard() {
-            const res = await fetch('/api/employee/data');
+            const params = new URLSearchParams();
+            const year = document.getElementById('filter-year').value;
+            const month = document.getElementById('filter-month').value;
+            if (year) params.set('year', year);
+            if (month) params.set('month', month);
+            const res = await fetch('/api/employee/data?' + params.toString());
             if (!res.ok) return;
             const data = await res.json();
             const emp = data.employee;
@@ -532,5 +578,6 @@
             window.location.href = '/login';
         }
     </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>

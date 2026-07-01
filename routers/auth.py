@@ -63,6 +63,9 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
 async def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     if not user:
+        # Fallback: try matching by email address
+        user = db.query(User).filter(User.email == req.username).first()
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Check if user has set a password (completed registration)

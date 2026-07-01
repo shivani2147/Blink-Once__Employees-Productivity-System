@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/js/theme.js" defer></script>
+    <script src="/static/js/theme.js"></script>
     <style>
         .admin-nav-secondary{display:flex;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 2.5rem;background:rgba(255,255,255,0.5);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-color);margin-bottom:2rem;}
         .dark-theme .admin-nav-secondary{background:rgba(17,24,39,0.4);}
@@ -59,6 +59,18 @@
 
         .perc-pill{display:inline-flex;align-items:center;gap:0.35rem;font-size:0.82rem;font-weight:600;}
         .chart-panel{padding:1.5rem;}
+
+        /* Trend panel */
+        .trend-panel{padding:1.5rem;margin-bottom:2rem;}
+        .trend-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem;}
+        .trend-header h3{font-size:1rem;margin:0;}
+        .trend-legend{display:flex;flex-wrap:wrap;gap:0.5rem 1rem;align-items:center;}
+        .trend-legend-item{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:500;cursor:pointer;padding:0.25rem 0.5rem;border-radius:6px;transition:background 0.2s;}
+        .trend-legend-item:hover{background:rgba(0,0,0,0.04);}
+        .dark-theme .trend-legend-item:hover{background:rgba(255,255,255,0.05);}
+        .trend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+        .trend-controls{display:flex;align-items:center;gap:0.6rem;}
+        .trend-controls label{font-size:0.78rem;color:var(--text-secondary);font-weight:500;white-space:nowrap;}
     </style>
 </head>
 <body>
@@ -94,10 +106,16 @@
     <!-- Filters -->
     <div class="glass-panel" style="padding:1.25rem 1.5rem;margin-bottom:2rem;">
         <div class="filter-bar">
-            <div class="form-group"><label>From Date</label><input type="date" id="f-from" class="form-control"></div>
-            <div class="form-group"><label>To Date</label><input type="date" id="f-to" class="form-control"></div>
-            <div class="form-group"><label>Department</label><input type="text" id="f-dept" class="form-control" placeholder="e.g. Editing"></div>
             <div class="form-group"><label>Employee</label><select id="f-emp" class="form-control"><option value="">All Employees</option></select></div>
+            <div class="form-group"><label>Year</label><select id="f-year" class="form-control"></select></div>
+            <div class="form-group"><label>Month</label><select id="f-month" class="form-control">
+                <option value="">All</option>
+                <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select></div>
+            <div class="form-group"><label>Date</label><input type="number" id="f-day" class="form-control" min="1" max="31" placeholder="1-31"></div>
             <div style="display:flex;gap:0.5rem;align-items:flex-end;">
                 <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Apply</button>
                 <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
@@ -142,8 +160,24 @@
         </div>
     </div>
 
+    <!-- Performance Trend -->
+    <div class="glass-panel trend-panel">
+        <div class="trend-header">
+            <h3><i class="fa-solid fa-chart-line" style="color:var(--accent-primary)"></i> Performance Trend <span style="font-size:0.75rem;font-weight:400;color:var(--text-secondary);">(Last 6 Months)</span></h3>
+            <div class="trend-controls">
+                <label for="trend-emp-filter"><i class="fa-solid fa-filter" style="font-size:0.7rem;"></i> Focus on:</label>
+                <select id="trend-emp-filter" class="form-control" style="width:auto;font-size:0.82rem;padding:0.3rem 0.6rem;"
+                        onchange="highlightTrendEmployee(this.value)">
+                    <option value="">All Employees</option>
+                </select>
+            </div>
+        </div>
+        <div id="trend-legend" class="trend-legend" style="margin-bottom:1rem;"></div>
+        <canvas id="trendChart" height="120"></canvas>
+    </div>
+
     <!-- Per-Employee Table -->
-    <div class="glass-panel" style="padding:1.5rem;margin-top:2rem;">
+    <div class="glass-panel" style="padding:1.5rem;margin-top:0;">
         <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-users" style="color:var(--accent-primary)"></i> All Employee Metrics</h3>
         <div class="table-container">
             <table class="table">
@@ -170,7 +204,8 @@
 
 <script src="/static/js/main.js"></script>
 <script>
-let attChart = null, tasksChart = null;
+let attChart = null, tasksChart = null, trendChart = null;
+let _trendData = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -181,15 +216,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('nav-user-name').textContent = u.employee_name;
     } catch { location.href='/login'; return; }
 
-    // Default date range (last 30 days)
-    const today = new Date();
-    const from  = new Date(); from.setDate(today.getDate() - 30);
-    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
-    document.getElementById('f-from').value = from.toISOString().split('T')[0];
+    populateYearFilter();
+
+    populateYearFilter();
 
     await loadEmployees();
     await loadData();
 });
+
+function populateYearFilter() {
+    const select = document.getElementById('f-year');
+    select.innerHTML = '<option value="">All</option>';
+    const option = document.createElement('option');
+    option.value = '2026';
+    option.textContent = '2026';
+    select.appendChild(option);
+    select.value = '2026';
+}
 
 async function loadEmployees() {
     const res = await fetch('/api/admin/employees');
@@ -200,15 +243,15 @@ async function loadEmployees() {
 }
 
 async function loadData() {
-    const params = new URLSearchParams();
-    const from = document.getElementById('f-from').value;
-    const to   = document.getElementById('f-to').value;
-    const dept = document.getElementById('f-dept').value;
     const emp  = document.getElementById('f-emp').value;
-    if (from) params.set('start_date', from);
-    if (to)   params.set('end_date', to);
-    if (dept) params.set('department', dept);
+    const year = document.getElementById('f-year').value;
+    const month = document.getElementById('f-month').value;
+    const day = document.getElementById('f-day').value;
+    const params = new URLSearchParams();
     if (emp)  params.set('employee_id', emp);
+    if (year) params.set('year', year);
+    if (month) params.set('month', month);
+    if (day) params.set('day', day);
 
     const res = await fetch('/api/admin/performance-data?' + params);
     if (!res.ok) return;
@@ -229,6 +272,9 @@ async function loadData() {
     // Charts
     renderAttChart(d.charts.attendance_pie);
     renderTasksChart(d.charts.tasks_bar);
+
+    // Performance Trend
+    if (d.trend) renderTrendChart(d.trend);
 
     // Table
     renderTable(d.employees);
@@ -362,6 +408,97 @@ function renderTable(emps) {
     }).join('');
 }
 
+function renderTrendChart(trend) {
+    _trendData = trend;
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const isDark = document.documentElement.classList.contains('dark-theme');
+    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const tickCol = isDark ? '#94a3b8' : '#475569';
+
+    // Populate focus-employee dropdown
+    const sel = document.getElementById('trend-emp-filter');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">All Employees</option>';
+    trend.datasets.forEach(ds => {
+        const opt = document.createElement('option');
+        opt.value = ds.emp_id;
+        opt.textContent = ds.name;
+        sel.appendChild(opt);
+    });
+    sel.value = currentVal;
+
+    // Build Chart.js datasets
+    const datasets = trend.datasets.map(ds => ({
+        label: ds.name,
+        data: ds.data,
+        borderColor: ds.color,
+        backgroundColor: ds.color + '18',
+        tension: 0.4,
+        fill: false,
+        pointBackgroundColor: ds.color,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2,
+        borderDash: [],
+    }));
+
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: trend.labels, datasets },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#fff',
+                    titleColor: isDark ? '#e2e8f0' : '#1e293b',
+                    bodyColor: isDark ? '#94a3b8' : '#475569',
+                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { color: tickCol }, grid: { color: gridCol } },
+                x: { ticks: { color: tickCol }, grid: { display: false } }
+            }
+        }
+    });
+
+    // Render custom legend
+    const legendEl = document.getElementById('trend-legend');
+    legendEl.innerHTML = trend.datasets.map(ds => {
+        const lastScore = ds.data[ds.data.length - 1];
+        return `<div class="trend-legend-item" onclick="highlightTrendEmployee('${ds.emp_id}')" title="Click to focus">
+            <div class="trend-dot" style="background:${ds.color};"></div>
+            <span>${ds.name}</span>
+            <span style="font-size:0.72rem;font-weight:700;color:${ds.color};">${lastScore}</span>
+        </div>`;
+    }).join('');
+}
+
+function highlightTrendEmployee(empId) {
+    if (!trendChart || !_trendData) return;
+    document.getElementById('trend-emp-filter').value = empId;
+    trendChart.data.datasets.forEach((ds, i) => {
+        if (!empId || String(_trendData.datasets[i].emp_id) === String(empId)) {
+            ds.borderWidth = 3;
+            ds.pointRadius = 5;
+            ds.borderDash  = [];
+        } else {
+            ds.borderWidth = 1;
+            ds.pointRadius = 2;
+            ds.borderDash  = [4, 4];
+        }
+    });
+    trendChart.update();
+}
+
 function clearFilters() {
     const today = new Date();
     const from  = new Date(); from.setDate(today.getDate()-30);
@@ -369,10 +506,15 @@ function clearFilters() {
     document.getElementById('f-from').value = from.toISOString().split('T')[0];
     document.getElementById('f-dept').value = '';
     document.getElementById('f-emp').value  = '';
+    document.getElementById('f-year').value = '';
+    document.getElementById('f-month').value = '';
+    document.getElementById('f-day').value = '';
+    populateYearFilter();
     loadData();
 }
 
 async function logout() { await fetch('/api/logout',{method:'POST'}); location.href='/login'; }
 </script>
+    <script src="/static/js/notification_badges.js"></script>
 </body>
 </html>
