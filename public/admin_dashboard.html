@@ -102,10 +102,19 @@
                 <div class="stat-title text-warning" style="color: var(--warning)">On Hold</div>
                 <div id="stat-hold" class="stat-value">-</div>
             </div>
+                <!-- Pending stat removed per request -->
+                <div class="stat-card glass-panel">
+                    <div class="stat-title" style="color: #ef4444">Overdue</div>
+                    <div id="stat-overdue" class="stat-value">-</div>
+                </div>
+                <div class="stat-card glass-panel">
+                    <div class="stat-title" style="color: #f59e0b">Client Changes</div>
+                    <div id="stat-clientchanges" class="stat-value">-</div>
+                </div>
         </div>
 
         <div class="grid-2 mb-4">
-            <div class="glass-panel p-4" style="padding: 1.5rem; max-height:360px; overflow:auto;">
+            <div class="glass-panel p-4" style="padding: 1.5rem; max-height:600px; overflow:auto;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
                     <h3 style="margin:0;display:flex;align-items:center;gap:0.5rem;"><span
                             style="color:#d97706; font-size: 1.2rem;">🔔</span> Notifications</h3>
@@ -228,13 +237,9 @@
                             <th>Shoot Type</th>
                             <th>Drive Upload</th>
                             <th>HD No.</th>
+                            <th>PC No.</th>
                             <th>HD Dir</th>
                             <th>Drive Link</th>
-                            <th>Comments</th>
-                            <th>Status</th>
-                            <th>Cameras</th>
-                            <th>Est. Workload</th>
-                            <th>Est. Completion Time</th>
                         </tr>
                     </thead>
                     <tbody id="records-table-body">
@@ -250,11 +255,14 @@
         function populateAdminYearFilter() {
             const select = document.getElementById('year_filter');
             select.innerHTML = '<option value="">All</option>';
-            const option = document.createElement('option');
-            option.value = '2026';
-            option.textContent = '2026';
-            select.appendChild(option);
-            select.value = '2026';
+            const currentYear = new Date().getFullYear();
+            for (let year = currentYear; year >= currentYear - 3; year--) {
+                const option = document.createElement('option');
+                option.value = String(year);
+                option.textContent = String(year);
+                select.appendChild(option);
+            }
+            select.value = '';
         }
 
         document.addEventListener("DOMContentLoaded", async () => {
@@ -302,63 +310,144 @@
             if (monthF) params.append('month', monthF);
             if (dayF) params.append('day', dayF);
 
-            const res = await fetch('/api/admin/data?' + params.toString());
-            const data = await res.json();
+            try {
+                const res = await fetch('/api/admin/data?' + params.toString());
+                if (!res.ok) {
+                    throw new Error(`Server returned ${res.status}`);
+                }
+                const data = await res.json();
 
-            // Update stats
-            document.getElementById('stat-emp').textContent = data.stats.total_employees;
-            document.getElementById('stat-proj').textContent = data.stats.total_projects;
-            document.getElementById('stat-done').textContent = data.stats.completed_projects;
-            document.getElementById('stat-ong').textContent = data.stats.ongoing_projects;
-            document.getElementById('stat-hold').textContent = data.stats.hold_projects;
+                // Update stats
+                document.getElementById('stat-emp').textContent = data.stats.total_employees;
+                document.getElementById('stat-proj').textContent = data.stats.total_projects;
+                document.getElementById('stat-done').textContent = data.stats.completed_projects;
+                document.getElementById('stat-ong').textContent = data.stats.ongoing_projects;
+                document.getElementById('stat-hold').textContent = data.stats.hold_projects;
 
-            // Update Chart
-            updateChart(data.analytics);
+                // Compute additional status counts from records: Overdue, Client Changes
+                try {
+                    let pendingCount = 0;
+                    let overdueCount = 0;
+                    let clientChangesCount = 0;
+                    if (data.records && data.records.length) {
+                        const today = new Date();
+                        const todayNoTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        data.records.forEach(r => {
+                            const status = (r.status || '').trim();
+                            // Treat both 'Pending' and legacy 'Not Started', empty, or lowercase variants as pending
+                            const sNorm = status.toLowerCase();
+                            if (sNorm === '' || sNorm === 'pending' || sNorm === 'not started' || sNorm === 'notstarted') pendingCount++;
+                            if (status === 'Client Changes') clientChangesCount++;
+                            if (r.deadline_date && status !== 'Done') {
+                                const dd = new Date(r.deadline_date);
+                                const ddNoTime = new Date(dd.getFullYear(), dd.getMonth(), dd.getDate());
+                                if (ddNoTime < todayNoTime) overdueCount++;
+                            }
+                        });
+                    }
+                    const so = document.getElementById('stat-overdue'); if (so) so.textContent = overdueCount;
+                    const sc = document.getElementById('stat-clientchanges'); if (sc) sc.textContent = clientChangesCount;
+                    console.debug('Admin stat-cards (global):', {overdueCount, clientChangesCount});
+                } catch (e) { console.warn('Extra stats compute error', e); }
 
-            // Update Table
-            if (!data.records || data.records.length === 0) {
+                // Update Chart if available
+                try {
+                    updateChart(data.analytics);
+                } catch (e) {
+                    console.warn('Chart update skipped:', e);
+                }
+
+                // Update Notifications (apply same filters)
+                try {
+                    await fetchNotifications(params);
+                } catch (e) {
+                    console.warn('Notifications update skipped:', e);
+                }
+
+                // Update Table
+                if (!data.records || data.records.length === 0) {
+                    document.getElementById('no-records').style.display = 'block';
+                    document.getElementById('records-container').style.display = 'none';
+                    document.getElementById('no-records').innerHTML = '<p>No records found matching your criteria.</p>';
+                } else {
+                    document.getElementById('no-records').style.display = 'none';
+                    document.getElementById('records-container').style.display = 'block';
+
+                    const tbody = document.getElementById('records-table-body');
+                    tbody.innerHTML = '';
+
+                    data.records.forEach(r => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>
+                                    <strong>${r.employee_name}</strong><br>
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary);">${r.designation}</span>
+                                </td>
+                                <td>${r.date}</td>
+                                <td>${r.client_name}</td>
+                                <td>${r.project_name}</td>
+                                <td>${r.start_date || '-'}</td>
+                                <td>${r.end_date || '-'}</td>
+                                <td>${r.deadline_date || '-'}</td>
+                                <td>${r.video_duration ? r.video_duration + (r.video_duration === 1 ? ' hr' : ' hrs') : '-'}</td>
+                                <td>${r.shoot_type || '-'}</td>
+                                <td>${r.uploaded_to_drive ? 'Yes' : 'No'}</td>
+                                <td>${r.harddisk_number || '-'}</td>
+                                <td>${r.pc_number || '-'}</td>
+                                <td><span class="truncate" title="${r.harddisk_directory || ''}">${r.harddisk_directory || '-'}</span></td>
+                                <td>${r.uploaded_to_drive && r.drive_link ? `<a href="${r.drive_link}" target="_blank" class="truncate" title="${r.drive_link}">${r.drive_link}</a>` : '-'}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error('Admin dashboard load error:', error);
                 document.getElementById('no-records').style.display = 'block';
                 document.getElementById('records-container').style.display = 'none';
-            } else {
-                document.getElementById('no-records').style.display = 'none';
-                document.getElementById('records-container').style.display = 'block';
-
-                const tbody = document.getElementById('records-table-body');
-                tbody.innerHTML = '';
-
-                data.records.forEach(r => {
-                    const statusClass = r.status.toLowerCase().replace(' ', '');
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>
-                                <strong>${r.employee_name}</strong><br>
-                                <span style="font-size: 0.8rem; color: var(--text-secondary);">${r.designation}</span>
-                            </td>
-                            <td>${r.date}</td>
-                            <td>${r.client_name}</td>
-                            <td>${r.project_name}</td>
-                            <td>${r.start_date || '-'}</td>
-                            <td>${r.end_date || '-'}</td>
-                            <td>${r.deadline_date || '-'}</td>
-                            <td>${r.video_duration ? r.video_duration + (r.video_duration === 1 ? ' hr' : ' hrs') : '-'}</td>
-                            <td>${r.shoot_type || '-'}</td>
-                            <td>${r.uploaded_to_drive ? 'Yes' : 'No'}</td>
-                            <td>${r.harddisk_number || '-'}</td>
-                            <td><span class="truncate" title="${r.harddisk_directory || ''}">${r.harddisk_directory || '-'}</span></td>
-                            <td>${r.drive_link ? `<a href="${r.drive_link}" target="_blank" class="truncate" title="${r.drive_link}">${r.drive_link}</a>` : '-'}</td>
-                            <td><span class="truncate" title="${r.comments || ''}">${r.comments || '-'}</span></td>
-                            <td><span class="badge badge-${statusClass}">${r.status}</span></td>
-                            <td>Level ${r.cameras_used <= 3 ? r.cameras_used : 'N'} (${r.cameras_used})</td>
-                            <td>${Math.round(parseFloat(r.expected_workload_hours))} hrs</td>
-                            <td>${r.estimated_completion_time || '-'}</td>
-                        </tr>
-                    `;
-                });
+                document.getElementById('no-records').innerHTML = `<p>Error loading records: ${error.message}</p>`;
             }
+                // Refresh global stat cards (counts across all employees, ignoring current filters)
+                try { await fetchGlobalStats(); } catch (e) { console.warn('Global stats update failed', e); }
+        }
+
+        // Fetch global (unfiltered) counts for the stat-cards so they represent all employees' records
+        async function fetchGlobalStats() {
+            try {
+                const res = await fetch('/api/admin/data');
+                if (!res.ok) return;
+                const data = await res.json();
+
+                let pendingCount = 0;
+                let overdueCount = 0;
+                let clientChangesCount = 0;
+                    if (data.records && data.records.length) {
+                    const today = new Date();
+                    const todayNoTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    data.records.forEach(r => {
+                        const status = (r.status || '').trim();
+                        const sNorm = status.toLowerCase();
+                        if (sNorm === '' || sNorm === 'pending' || sNorm === 'not started' || sNorm === 'notstarted') pendingCount++;
+                        if (status === 'Client Changes') clientChangesCount++;
+                        if (r.deadline_date && status !== 'Done') {
+                            const dd = new Date(r.deadline_date);
+                            const ddNoTime = new Date(dd.getFullYear(), dd.getMonth(), dd.getDate());
+                            if (ddNoTime < todayNoTime) overdueCount++;
+                        }
+                    });
+                }
+
+                    const so = document.getElementById('stat-overdue'); if (so) so.textContent = overdueCount;
+                    const sc = document.getElementById('stat-clientchanges'); if (sc) sc.textContent = clientChangesCount;
+                    console.debug('Admin stat-cards (filtered):', {overdueCount, clientChangesCount});
+            } catch (e) { console.warn('fetchGlobalStats error', e); }
         }
 
         function updateChart(analyticsData) {
-            const ctx = document.getElementById('cameraChart').getContext('2d');
+            const canvas = document.getElementById('cameraChart');
+            if (!canvas) {
+                return;
+            }
+            const ctx = canvas.getContext('2d');
             if (myChart) {
                 myChart.data.labels = analyticsData.labels;
                 myChart.data.datasets[0].data = analyticsData.data;
@@ -401,9 +490,10 @@
         }
 
         /* ── Notifications ── */
-        async function fetchNotifications(forceRefresh = false) {
+        async function fetchNotifications(params = null) {
             try {
-                const res = await fetch('/api/admin/notifications');
+                const url = '/api/admin/notifications' + (params ? ('?' + params.toString()) : '');
+                const res = await fetch(url);
                 if (!res.ok) return;
                 const data = await res.json();
                 renderNotifications(data.notifications || []);

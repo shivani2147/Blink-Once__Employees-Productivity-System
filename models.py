@@ -67,6 +67,7 @@ class ProductivityRecord(Base):
     task_description = Column(Text)
     
     harddisk_number = Column(String(100))
+    pc_number = Column(String(100))
     harddisk_directory = Column(String(255))  # UI label: "Folder Name" (optional)
     
     uploaded_to_drive = Column(Boolean, default=False)
@@ -74,8 +75,6 @@ class ProductivityRecord(Base):
     
     shoot_type = Column(String(100)) # engagement, wedding, etc.
     cameras_used = Column(Integer, default=1)
-    
-    comments = Column(Text)
     
     expected_workload_hours = Column(Float)
     estimated_completion_time = Column(String(100)) # e.g. '1 day 2 hours'

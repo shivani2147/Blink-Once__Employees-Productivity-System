@@ -37,7 +37,7 @@
                     <td>{{ r.cameras_used }}</td>
                     <td>{{ "%.1f"|format(r.expected_workload_hours) }} hrs</td>
                     <td>
-                        <button class="btn btn-outline btn-sm" onclick="openEditModal({{ r.id }}, '{{ r.status }}', '{{ r.drive_link }}', '{{ r.comments }}')">
+                        <button class="btn btn-outline btn-sm" onclick="openEditModal({{ r.id }}, '{{ r.status }}', '{{ r.drive_link | replace("'", "\\'") }}', '{{ r.pc_number | replace("'", "\\'") }}', '{{ 'Yes' if r.uploaded_to_drive else 'No' }}')">
                             <i class="fa-solid fa-pen"></i> Edit
                         </button>
                     </td>
@@ -121,7 +121,6 @@
                         <option value="Not Started">Not Started</option>
                         <option value="Ongoing">Ongoing</option>
                         <option value="Hold">Hold</option>
-                        <option value="Done">Done</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -145,13 +144,12 @@
             </div>
 
             <div class="form-group">
+                <label>PC No.</label>
+                <input type="text" name="pc_number" class="form-control" placeholder="e.g. PC-12">
+            </div>
+            <div class="form-group">
                 <label>Drive Link</label>
                 <input type="url" name="drive_link" class="form-control">
-            </div>
-
-            <div class="form-group">
-                <label>Comments</label>
-                <textarea name="comments" class="form-control" rows="3"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
@@ -174,18 +172,23 @@
                     <option value="Not Started">Not Started</option>
                     <option value="Ongoing">Ongoing</option>
                     <option value="Hold">Hold</option>
-                    <option value="Done">Done</option>
                 </select>
             </div>
 
             <div class="form-group">
+                <label>Uploaded to Drive?</label>
+                <select name="uploaded_to_drive" id="edit_uploaded_to_drive" class="form-control">
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>PC No.</label>
+                <input type="text" name="pc_number" id="edit_pc_number" class="form-control" placeholder="e.g. PC-12">
+            </div>
+            <div class="form-group" id="edit_drive_link_row">
                 <label>Drive Link</label>
                 <input type="url" name="drive_link" id="edit_drive_link" class="form-control">
-            </div>
-
-            <div class="form-group">
-                <label>Comments</label>
-                <textarea name="comments" id="edit_comments" class="form-control" rows="3"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
@@ -194,4 +197,41 @@
         </form>
     </div>
 </div>
+
+<script>
+    function toggleAddDriveLink() {
+        const uploaded = document.querySelector('#addModal select[name="uploaded_to_drive"]').value;
+        const row = document.querySelector('#addModal input[name="drive_link"]').closest('.form-group');
+        row.style.display = uploaded === 'Yes' ? 'block' : 'none';
+    }
+
+    function toggleEditDriveLink() {
+        const uploaded = document.getElementById('edit_uploaded_to_drive').value;
+        document.getElementById('edit_drive_link_row').style.display = uploaded === 'Yes' ? 'block' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const addDriveSelect = document.querySelector('#addModal select[name="uploaded_to_drive"]');
+        if (addDriveSelect) {
+            addDriveSelect.addEventListener('change', toggleAddDriveLink);
+            toggleAddDriveLink();
+        }
+
+        const editDriveSelect = document.getElementById('edit_uploaded_to_drive');
+        if (editDriveSelect) {
+            editDriveSelect.addEventListener('change', toggleEditDriveLink);
+            toggleEditDriveLink();
+        }
+    });
+
+    function openEditModal(id, status, driveLink, pcNumber, uploadedToDrive) {
+        document.getElementById('edit_form').action = '/employee/dashboard/edit/' + id;
+        document.getElementById('edit_status').value = status;
+        document.getElementById('edit_pc_number').value = pcNumber || '';
+        document.getElementById('edit_drive_link').value = driveLink || '';
+        document.getElementById('edit_uploaded_to_drive').value = uploadedToDrive || 'No';
+        toggleEditDriveLink();
+        openModal('editModal');
+    }
+</script>
 {% endblock %}

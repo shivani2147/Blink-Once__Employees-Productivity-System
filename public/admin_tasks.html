@@ -32,9 +32,9 @@
         .filter-bar .form-group{margin-bottom:0;flex:1;min-width:160px;}
         .filter-bar .form-group label{font-size:0.78rem;}
 
-        .priority-high   {color:#dc2626;font-weight:600;}
-        .priority-medium {color:#d97706;font-weight:600;}
-        .priority-low    {color:#059669;font-weight:600;}
+        .badge-priority-high   {background:rgba(220,38,38,0.1);  color:#dc2626;border:1px solid rgba(220,38,38,0.2);}
+        .badge-priority-medium {background:rgba(217,119,6,0.1);  color:#d97706;border:1px solid rgba(217,119,6,0.2);}
+        .badge-priority-low    {background:rgba(5,150,105,0.1);   color:#059669;border:1px solid rgba(5,150,105,0.2);}
 
         .badge-done        {background:rgba(5,150,105,0.1);  color:#059669;border:1px solid rgba(5,150,105,0.2);}
         .badge-ongoing     {background:rgba(37,99,235,0.1);   color:#2563eb;border:1px solid rgba(37,99,235,0.2);}
@@ -174,6 +174,23 @@
                     </select>
                 </div>
             </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>PC No.</label>
+                    <input type="text" name="pc_number" class="form-control" placeholder="e.g. PC-12">
+                </div>
+                <div class="form-group">
+                    <label>Uploaded to Drive?</label>
+                    <select name="uploaded_to_drive" id="assign-uploaded-to-drive" class="form-control">
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" id="assign-drive-link-row" style="display:none;">
+                <label>Drive Link</label>
+                <input type="url" name="drive_link" class="form-control" placeholder="https://drive.google.com/…">
+            </div>
             <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:1rem;"><i class="fa-solid fa-paper-plane"></i> Assign Task</button>
         </form>
     </div>
@@ -199,9 +216,13 @@
                     </select>
                 </div>
             </div>
-            <div class="form-group"><label>New Deadline Date</label><input type="date" id="edit-deadline" class="form-control"></div>
-            <div class="form-group"><label>Drive Link</label><input type="url" id="edit-drive" class="form-control"></div>
-            <div class="form-group"><label>Comments</label><textarea id="edit-comments" class="form-control" rows="3"></textarea></div>
+            <div class="form-group"><label>PC No.</label><input type="text" id="edit-pc-number" class="form-control" placeholder="e.g. PC-12"></div>
+            <div class="form-group"><label>Uploaded to Drive?</label>
+                <select id="edit-uploaded-to-drive" class="form-control">
+                    <option value="No">No</option><option value="Yes">Yes</option>
+                </select>
+            </div>
+            <div class="form-group" id="edit-drive-link-row" style="display:none;"><label>Drive Link</label><input type="url" id="edit-drive" class="form-control"></div>
             <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
         </form>
     </div>
@@ -236,6 +257,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch { location.href='/login'; return; }
     await loadEmployees();
     await loadData();
+    const assignUploaded = document.getElementById('assign-uploaded-to-drive');
+    const assignRow = document.getElementById('assign-drive-link-row');
+    if (assignUploaded && assignRow) {
+        assignUploaded.addEventListener('change', () => {
+            assignRow.style.display = assignUploaded.value === 'Yes' ? 'block' : 'none';
+        });
+    }
 });
 
 async function loadEmployees() {
@@ -280,7 +308,7 @@ async function loadData() {
 
     tbody.innerHTML = d.records.map(r => {
         const sc = (r.status||'').toLowerCase().replace(/ /g,'-');
-        const pc = 'priority-' + (r.priority||'medium').toLowerCase();
+        const pc = 'badge-priority-' + (r.priority||'medium').toLowerCase();
         const initials = (r.employee_name||'?').split(' ').map(w=>w[0]).slice(0,2).join('');
         const daysChip = r.overdue
             ? `<span class="badge badge-overdue" style="font-size:0.68rem;margin-left:0.4rem;">Overdue</span>` : '';
@@ -292,7 +320,7 @@ async function loadData() {
             </td>
             <td style="font-size:0.85rem;">${r.editing_type}</td>
             <td style="font-size:0.85rem;">${r.deadline_date||'—'}${daysChip}</td>
-            <td class="${pc}" style="font-size:0.85rem;"><i class="fa-solid fa-circle" style="font-size:0.55rem;margin-right:0.3rem;"></i>${r.priority}</td>
+            <td><span class="badge ${pc}" style="font-size:0.72rem;"><i class="fa-solid fa-circle" style="font-size:0.45rem;margin-right:0.35rem;"></i>${r.priority}</span></td>
             <td><span class="badge badge-${sc}" style="font-size:0.72rem;">${r.status}</span></td>
             <td style="font-size:0.85rem;">${Math.round(r.expected_workload_hours||0)} hrs</td>
             <td style="display:flex;gap:0.4rem;">
@@ -321,14 +349,21 @@ document.getElementById('assign-form').addEventListener('submit', async e => {
 });
 
 function openEdit(r) {
-    document.getElementById('edit-id').value       = r.id;
-    document.getElementById('edit-status').value   = r.status;
-    document.getElementById('edit-priority').value = r.priority;
-    document.getElementById('edit-deadline').value = r.deadline_date||'';
-    document.getElementById('edit-drive').value    = r.drive_link||'';
-    document.getElementById('edit-comments').value = r.comments||'';
+    document.getElementById('edit-id').value            = r.id;
+    document.getElementById('edit-status').value        = r.status;
+    document.getElementById('edit-priority').value      = r.priority;
+    document.getElementById('edit-deadline').value      = r.deadline_date||'';
+    document.getElementById('edit-pc-number').value     = r.pc_number||'';
+    document.getElementById('edit-uploaded-to-drive').value = r.uploaded_to_drive ? 'Yes' : 'No';
+    document.getElementById('edit-drive-link-row').style.display = r.uploaded_to_drive ? 'block' : 'none';
+    document.getElementById('edit-drive').value         = r.drive_link||'';
     openModal('editModal');
 }
+
+document.getElementById('edit-uploaded-to-drive').addEventListener('change', () => {
+    const row = document.getElementById('edit-drive-link-row');
+    row.style.display = document.getElementById('edit-uploaded-to-drive').value === 'Yes' ? 'block' : 'none';
+});
 
 document.getElementById('edit-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -337,8 +372,9 @@ document.getElementById('edit-form').addEventListener('submit', async e => {
         status: document.getElementById('edit-status').value,
         priority: document.getElementById('edit-priority').value,
         deadline_date: document.getElementById('edit-deadline').value||null,
+        pc_number: document.getElementById('edit-pc-number').value,
+        uploaded_to_drive: document.getElementById('edit-uploaded-to-drive').value,
         drive_link: document.getElementById('edit-drive').value,
-        comments: document.getElementById('edit-comments').value,
     };
     const res = await fetch(`/api/admin/tasks/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if (res.ok) { closeModal('editModal'); loadData(); }

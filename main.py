@@ -95,6 +95,10 @@ async def employee_leaves_page():
 async def employee_profile_page():
     return FileResponse("public/emp_profile.html")
 
+@app.get("/employee/settings")
+async def employee_settings_page():
+    return FileResponse("public/emp_settings.html")
+
 # Legacy redirect — keep old profile URL working
 @app.get("/employee/profile-old")
 async def employee_profile_old():

@@ -59,19 +59,7 @@
                     <input type="text" id="username" name="username" class="form-control" required>
                 </div>
 
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="email" id="email" name="email" class="form-control" placeholder="admin@blinkonce.local">
-                        <button type="button" class="btn btn-outline" id="send-code-btn" style="white-space: nowrap;">Send Code</button>
-                    </div>
-                    <small class="text-secondary">Only fill this and send code if you want to change your email.</small>
-                </div>
-                
-                <div class="form-group" id="verification-group" style="display: none;">
-                    <label>Verification Code</label>
-                    <input type="text" id="verification_code" name="verification_code" class="form-control" placeholder="Enter 6-digit code sent to your new email">
-                </div>
+
 
                 <div class="grid-2">
                     <div class="form-group">
@@ -97,39 +85,6 @@
                 </button>
             </form>
         </div>
-
-        <!-- ── Office Location Config ────────────────────────────── -->
-        <div class="glass-panel" style="max-width:600px;margin:2rem auto 0;padding:2rem;">
-            <h3 class="mb-2"><i class="fa-solid fa-location-dot" style="color:var(--accent-primary)"></i> GPS Office Location</h3>
-            <p class="text-secondary mb-4" style="font-size:0.88rem;">Configure the office coordinates and radius for employee punch-in/out geofencing.</p>
-            <div id="loc-alert" style="display:none;margin-bottom:1rem;padding:0.85rem 1rem;border-radius:8px;font-size:0.88rem;display:none;align-items:center;gap:0.6rem;"></div>
-            <form id="location-form">
-                <div class="form-group">
-                    <label>Location Name</label>
-                    <input id="loc-name" class="form-control" placeholder="e.g. Main Office" value="Main Office">
-                </div>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label class="required">Latitude</label>
-                        <input type="number" id="loc-lat" class="form-control" step="0.000001" placeholder="e.g. 28.613900" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="required">Longitude</label>
-                        <input type="number" id="loc-lon" class="form-control" step="0.000001" placeholder="e.g. 77.209000" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="required">Allowed Radius (meters)</label>
-                    <input type="number" id="loc-radius" class="form-control" min="10" max="5000" value="100" required>
-                    <small class="text-secondary">Employees must be within this radius to punch in/out. Default: 100m.</small>
-                </div>
-                <button type="button" class="btn btn-outline btn-sm" style="margin-bottom:1rem;" onclick="detectMyLocation()">
-                    <i class="fa-solid fa-crosshairs"></i> Use My Current Location
-                </button>
-                <br>
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Office Location</button>
-            </form>
-        </div>
     </main>
 
     <script>
@@ -147,35 +102,9 @@
             } catch (e) {
                 window.location.href = '/login';
             }
-            await loadOfficeLocation();
         });
         
-        document.getElementById('send-code-btn').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            if (!email) {
-                alert("Please enter a new email first.");
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/admin/send-verification-code', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: email })
-                });
-                
-                if (response.ok) {
-                    alert("Verification code sent! (Check console for mock email)");
-                    document.getElementById('verification-group').style.display = 'block';
-                } else {
-                    const data = await response.json();
-                    alert(data.detail || 'Failed to send code');
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error sending verification code.");
-            }
-        });
+
 
         document.getElementById('settings-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -189,11 +118,7 @@
                 return;
             }
 
-            // Remove email and code if they are blank so we don't try to change it
-            if (!data.email) {
-                delete data.email;
-                delete data.verification_code;
-            }
+
 
             try {
                 const response = await fetch('/api/admin/settings', {
@@ -219,55 +144,6 @@
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login';
         }
-
-        // ── Office Location ────────────────────────────────────────
-        async function loadOfficeLocation() {
-            const res = await fetch('/api/admin/office-location');
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.latitude) {
-                document.getElementById('loc-name').value   = data.name || 'Main Office';
-                document.getElementById('loc-lat').value    = data.latitude;
-                document.getElementById('loc-lon').value    = data.longitude;
-                document.getElementById('loc-radius').value = data.radius_meters;
-            }
-        }
-
-        function detectMyLocation() {
-            if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    document.getElementById('loc-lat').value = pos.coords.latitude.toFixed(6);
-                    document.getElementById('loc-lon').value = pos.coords.longitude.toFixed(6);
-                },
-                err => alert('Could not detect location: ' + err.message),
-                { enableHighAccuracy: true }
-            );
-        }
-
-        document.getElementById('location-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const body = {
-                name: document.getElementById('loc-name').value,
-                latitude: parseFloat(document.getElementById('loc-lat').value),
-                longitude: parseFloat(document.getElementById('loc-lon').value),
-                radius_meters: parseInt(document.getElementById('loc-radius').value),
-            };
-            const res = await fetch('/api/admin/office-location', {
-                method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            const locAlert = document.getElementById('loc-alert');
-            locAlert.textContent = res.ok ? '✓ ' + data.message : '✗ ' + (data.detail || 'Error.');
-            locAlert.style.background = res.ok ? 'rgba(5,150,105,0.08)' : 'rgba(220,38,38,0.08)';
-            locAlert.style.border = res.ok ? '1px solid rgba(5,150,105,0.2)' : '1px solid rgba(220,38,38,0.2)';
-            locAlert.style.color = res.ok ? '#059669' : '#b91c1c';
-            locAlert.style.borderRadius = '8px';
-            locAlert.style.padding = '0.85rem 1rem';
-            locAlert.style.marginBottom = '1rem';
-            locAlert.style.display = 'block';
-            setTimeout(() => { locAlert.style.display = 'none'; }, 3500);
-        });
     </script>
     <script src="/static/js/notification_badges.js"></script>
 </body>

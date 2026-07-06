@@ -38,6 +38,7 @@
         .tab-btn.active { background:rgba(79,70,229,0.1); color:var(--accent-primary); border-color:var(--accent-primary); }
         .tab-content { display:none; }
         .tab-content.active { display:block; animation:fadeIn 0.3s ease; }
+        #tab-add { max-width: 750px; margin: 0 auto; }
 
         .rec-table { width:100%; border-collapse:collapse; }
         .rec-table th,.rec-table td { padding:0.85rem 1rem; text-align:left; border-bottom:1px solid var(--border-color); font-size:0.87rem; }
@@ -53,8 +54,9 @@
         .edit-modal { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(8px); z-index:1000; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2rem 1rem; }
         .edit-modal.active { display:flex; }
         .edit-box { background:var(--bg-glass); border:1px solid var(--border-color); border-radius:var(--border-radius); padding:2rem; width:100%; max-width:720px; box-shadow:var(--shadow-soft); animation:slideUp 0.3s ease; margin:auto; }
-        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-        @media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+        .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        @media(max-width:1024px) { .form-grid { grid-template-columns: 1fr; } }
+        @media(max-width:640px) { .form-grid { grid-template-columns: 1fr; } }
 
         /* History */
         .hist-entry { padding:1rem 1.25rem; border-radius:10px; border:1px solid var(--border-color); margin-bottom:0.75rem; font-size:0.87rem; }
@@ -68,6 +70,15 @@
         .alert-err { background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; }
         .alert-ok  { background:rgba(5,150,105,0.07); border:1px solid rgba(5,150,105,0.2); color:#059669; }
 
+        /* Task cards */
+        .task-card { padding:1rem 1.25rem; border-radius:12px; border:1px solid var(--border-color); margin-bottom:0.75rem; display:flex; align-items:flex-start; gap:1rem; transition:all 0.2s ease; }
+        .task-card:hover { border-color:rgba(79,70,229,0.2); box-shadow:0 4px 15px rgba(79,70,229,0.06); }
+        .task-card.overdue { border-left:3px solid var(--danger); }
+        .task-card.due-today { border-left:3px solid var(--warning); }
+        .task-meta { flex:1; min-width:0; }
+        .task-name { font-weight:600; margin-bottom:0.25rem; }
+        .task-sub { font-size:0.8rem; color:var(--text-secondary); }
+
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     </style>
@@ -77,10 +88,11 @@
         <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
         <nav class="sidebar-nav">
             <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
-            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
             <a href="/employee/productivity" class="active"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
             <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
             <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -100,6 +112,7 @@
             <div class="sub-tabs">
                 <button class="tab-btn active" onclick="switchTab('records',this)"><i class="fa-solid fa-table-list"></i> My Records</button>
                 <button class="tab-btn" onclick="switchTab('add',this)"><i class="fa-solid fa-plus"></i> Add Record</button>
+                <!-- My Tasks removed per request -->
                 <button class="tab-btn" onclick="switchTab('edithistory',this)"><i class="fa-solid fa-clock-rotate-left"></i> Edit History</button>
             </div>
 
@@ -142,8 +155,11 @@
                         <table class="rec-table">
                             <thead>
                                 <tr>
-                                    <th>#</th><th>Date</th><th>Project</th><th>Client</th><th>Status</th>
-                                    <th>Priority</th><th>Deadline</th><th>Edits</th><th>Actions</th>
+                                    <th>#</th><th>Employee</th><th>Date</th><th>Client</th><th>Project</th>
+                                        <th>Status</th>
+                                        <th>Start Date</th><th>End Date</th><th>Deadline Date</th>
+                                    <th>Video Duration</th><th>Shoot Type</th><th>Drive Upload</th>
+                                    <th>HD No.</th><th>PC No.</th><th>HD Dir</th><th>Drive Link</th><th style="text-align:right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="rec-tbody"></tbody>
@@ -170,7 +186,8 @@
                             </div>
                             <div class="form-group">
                                 <label class="required">Date</label>
-                                <input type="date" name="date" class="form-control" required>
+                                <input type="date" id="productivity-date" class="form-control" required disabled>
+                                <input type="hidden" name="date" id="productivity-date-hidden">
                             </div>
                             <div class="form-group">
                                 <label class="required">Start Date</label>
@@ -186,18 +203,20 @@
                             </div>
                             <div class="form-group">
                                 <label class="required">Editing Type</label>
-                                <select name="editing_type" class="form-control" required>
-                                    <option value="">Select…</option>
+                                <select id="editing_type_select" name="editing_type" class="form-control" multiple required style="display:none;">
                                     <option>Wedding</option><option>Engagement</option><option>Pre-Wedding</option>
                                     <option>Birthday</option><option>Corporate</option><option>Other</option>
                                 </select>
+                                <!-- <input type="text" id="editing_type_search" class="form-control" placeholder="Filter editing types..." style="margin-top:0.75rem;"> -->
+                                <div id="editing_type_multi" class="ms-container" style="margin-top:0.5rem;"></div>
                             </div>
                             <div class="form-group">
                                 <label class="required">Shoot Type</label>
-                                <select name="shoot_type" class="form-control" required>
-                                    <option value="">Select…</option>
+                                <select id="shoot_type_select" name="shoot_type" class="form-control" multiple required style="display:none;">
                                     <option>Indoor</option><option>Outdoor</option><option>Hybrid</option>
                                 </select>
+                                <!-- <input type="text" id="shoot_type_search" class="form-control" placeholder="Filter shoot types..." style="margin-top:0.75rem;"> -->
+                                <div id="shoot_type_multi" class="ms-container" style="margin-top:0.5rem;"></div>
                             </div>
                             <div class="form-group">
                                 <label class="required">Video Duration (hrs)</label>
@@ -210,7 +229,7 @@
                             <div class="form-group">
                                 <label class="required">Status</label>
                                 <select name="status" class="form-control" required>
-                                    <option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option>
+                                    <option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option><option>Client Changes</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -224,16 +243,20 @@
                                 <input name="harddisk_number" class="form-control" placeholder="e.g. HD-01">
                             </div>
                             <div class="form-group">
+                                <label>PC No.</label>
+                                <input name="pc_number" class="form-control" placeholder="e.g. PC-12">
+                            </div>
+                            <div class="form-group">
                                 <label>Folder Name <span style="color:var(--text-secondary);font-size:0.78rem;">(optional)</span></label>
                                 <input name="harddisk_directory" class="form-control" placeholder="e.g. Wedding_2025_Sharma">
                             </div>
                             <div class="form-group">
                                 <label>Uploaded to Drive?</label>
-                                <select name="uploaded_to_drive" class="form-control">
+                                <select name="uploaded_to_drive" id="add-drive-uploaded" class="form-control">
                                     <option value="No">No</option><option value="Yes">Yes</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" id="add-drive-link-row" style="display:none;">
                                 <label>Drive Link</label>
                                 <input name="drive_link" class="form-control" placeholder="https://drive.google.com/…">
                             </div>
@@ -241,10 +264,6 @@
                         <div class="form-group">
                             <label>Task Description</label>
                             <textarea name="task_description" class="form-control" rows="2" placeholder="Brief description of the task…"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Comments</label>
-                            <textarea name="comments" class="form-control" rows="2"></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Record</button>
                     </form>
@@ -258,6 +277,8 @@
                     <div id="hist-list"><div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">Loading edit history…</div></div>
                 </div>
             </div>
+
+            <!-- My Tasks tab removed -->
 
         </div>
     </div>
@@ -274,7 +295,7 @@
                 <input type="hidden" id="edit-id">
                 <div class="form-grid">
                     <div class="form-group"><label>Status</label>
-                        <select id="e-status" class="form-control"><option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option></select>
+                        <select id="e-status" class="form-control"><option>Not Started</option><option>Ongoing</option><option>Hold</option><option>Done</option><option>Client Changes</option></select>
                     </div>
                     <div class="form-group"><label>Priority</label>
                         <select id="e-priority" class="form-control"><option>Low</option><option>Medium</option><option>High</option></select>
@@ -282,18 +303,18 @@
                     <div class="form-group"><label>Deadline Date</label>
                         <input type="date" id="e-deadline" class="form-control">
                     </div>
+                    <div class="form-group"><label>PC No.</label>
+                        <input id="e-pc-number" class="form-control" placeholder="e.g. PC-12">
+                    </div>
                     <div class="form-group"><label>Uploaded to Drive?</label>
                         <select id="e-drive-uploaded" class="form-control"><option value="No">No</option><option value="Yes">Yes</option></select>
                     </div>
-                    <div class="form-group"><label>Drive Link</label>
+                    <div class="form-group" id="edit-drive-link-row" style="display:none;"><label>Drive Link</label>
                         <input id="e-drive" class="form-control" placeholder="https://drive.google.com/…">
                     </div>
                     <div class="form-group"><label>Folder Name <span style="color:var(--text-secondary);font-size:0.78rem;">(optional)</span></label>
                         <input id="e-folder" class="form-control">
                     </div>
-                </div>
-                <div class="form-group"><label>Comments</label>
-                    <textarea id="e-comments" class="form-control" rows="2"></textarea>
                 </div>
                 <div style="display:flex;gap:0.75rem;">
                     <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-save"></i> Save Changes</button>
@@ -304,7 +325,109 @@
     </div>
 
     <script>
+        function createMultiSelect(selectId, containerId, searchInputId, placeholder) {
+            const select = document.getElementById(selectId);
+            const container = document.getElementById(containerId);
+            const searchInput = document.getElementById(searchInputId);
+            if (!select || !container) return;
+
+            const btn = document.createElement('div');
+            btn.className = 'ms-button';
+            const tags = document.createElement('span');
+            tags.className = 'ms-tags';
+            tags.textContent = placeholder;
+            const caret = document.createElement('span');
+            caret.textContent = '▾';
+            btn.appendChild(tags);
+            btn.appendChild(caret);
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'ms-dropdown';
+            dropdown.style.display = 'none';
+            dropdown.style.maxHeight = '220px';
+            dropdown.style.overflowY = 'auto';
+
+            const allRow = document.createElement('label');
+            allRow.className = 'ms-option';
+            const allCb = document.createElement('input');
+            allCb.type = 'checkbox';
+            allCb.value = '__select_all';
+            const allText = document.createElement('span');
+            allText.textContent = 'Select All';
+            allRow.appendChild(allCb);
+            allRow.appendChild(allText);
+            dropdown.appendChild(allRow);
+
+            Array.from(select.options).forEach((opt, idx) => {
+                const row = document.createElement('label');
+                row.className = 'ms-option';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = opt.value;
+                cb.dataset.idx = idx;
+                cb.checked = opt.selected;
+                const txt = document.createElement('span');
+                txt.textContent = opt.text;
+                row.appendChild(cb);
+                row.appendChild(txt);
+                dropdown.appendChild(row);
+
+                cb.addEventListener('change', () => {
+                    select.options[cb.dataset.idx].selected = cb.checked;
+                    updateTags();
+                    updateSelectAllState();
+                });
+            });
+
+            const optionRows = Array.from(dropdown.querySelectorAll('.ms-option')).slice(1);
+
+            function updateTags() {
+                const selected = Array.from(select.selectedOptions).map(o => o.text);
+                tags.textContent = selected.length ? selected.join(', ') : placeholder;
+            }
+
+            function updateSelectAllState() {
+                const allSelected = optionRows.length > 0 && optionRows.every(row => row.querySelector('input').checked);
+                allCb.checked = allSelected;
+            }
+
+            allCb.addEventListener('change', () => {
+                const checked = allCb.checked;
+                optionRows.forEach(row => {
+                    const cb = row.querySelector('input');
+                    cb.checked = checked;
+                    select.options[cb.dataset.idx].selected = checked;
+                });
+                updateTags();
+            });
+
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    const q = searchInput.value.trim().toLowerCase();
+                    optionRows.forEach(row => {
+                        const text = row.textContent.trim().toLowerCase();
+                        row.style.display = q === '' || text.includes(q) ? '' : 'none';
+                    });
+                });
+            }
+
+            btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+
+            container.appendChild(btn);
+            container.appendChild(dropdown);
+            updateTags();
+        }
+
         let allRecords = [];
+        let allTasks = [];
 
         function populateYearFilter() {
             const select = document.getElementById('filter-year');
@@ -323,17 +446,51 @@
             loadRecords();
         }
 
+        function setDefaultProductivityDate() {
+            const displayInput = document.getElementById('productivity-date');
+            const hiddenInput = document.getElementById('productivity-date-hidden');
+            if (!displayInput || !hiddenInput) return;
+            const today = new Date().toISOString().split('T')[0];
+            displayInput.value = today;
+            hiddenInput.value = today;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const r = await fetch('/api/auth/me');
                 if (!r.ok) { window.location.href='/login'; return; }
                 const me = await r.json();
                 if (me.role==='Admin') { window.location.href='/admin/dashboard'; return; }
-                document.getElementById('sb-name').textContent = me.employee_name;
+                document.getElementById('sb-name').textContent = me.employee_name || 'Employee';
+                const initials = (me.employee_name || 'Employee').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+                const sbAvatar = document.getElementById('sb-avatar');
+                if (me.photo_path) {
+                    sbAvatar.innerHTML = `<img src="/${me.photo_path.replace(/^\/+/, '')}" alt="avatar">`;
+                } else {
+                    sbAvatar.textContent = initials;
+                }
             } catch(e) { window.location.href='/login'; return; }
+            createMultiSelect('editing_type_select', 'editing_type_multi', 'editing_type_search', 'Select editing types');
+            createMultiSelect('shoot_type_select', 'shoot_type_multi', 'shoot_type_search', 'Select shoot types');
+            setDefaultProductivityDate();
             populateYearFilter();
             await loadRecords();
             await loadEditHistory();
+            await loadTasks();
+            const addDriveSelect = document.getElementById('add-drive-uploaded');
+            const addDriveRow = document.getElementById('add-drive-link-row');
+            const editDriveSelect = document.getElementById('e-drive-uploaded');
+            const editDriveRow = document.getElementById('edit-drive-link-row');
+            if (addDriveSelect && addDriveRow) {
+                addDriveSelect.addEventListener('change', () => {
+                    addDriveRow.style.display = addDriveSelect.value === 'Yes' ? 'block' : 'none';
+                });
+            }
+            if (editDriveSelect && editDriveRow) {
+                editDriveSelect.addEventListener('change', () => {
+                    editDriveRow.style.display = editDriveSelect.value === 'Yes' ? 'block' : 'none';
+                });
+            }
         });
 
         function switchTab(name, btn) {
@@ -358,26 +515,32 @@
             document.getElementById('rec-count').textContent = `${allRecords.length} record(s)`;
             const tbody = document.getElementById('rec-tbody');
             if (allRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--text-secondary);">No records yet. Add your first record!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="17" style="text-align:center;padding:2.5rem;color:var(--text-secondary);">No records yet. Add your first record!</td></tr>';
                 return;
             }
-            const today = new Date().toISOString().split('T')[0];
             tbody.innerHTML = allRecords.map((r, i) => {
-                const overdue = r.deadline_date && r.deadline_date < today && r.status !== 'Done';
-                const statusColors = {'Done':'#059669','Ongoing':'#2563eb','Not Started':'#dc2626','Hold':'#d97706'};
-                const sc = statusColors[r.status] || '#64748b';
-                return `<tr style="${overdue ? 'background:rgba(220,38,38,0.02)' : ''}">
+                const employeeName = r.employee_name || '—';
+                const driveUpload = r.uploaded_to_drive ? 'Yes' : 'No';
+                const driveLink = r.drive_link ? `<a href="${r.drive_link}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary);word-break:break-all;">${r.drive_link}</a>` : '—';
+                const statusColor = r.status === 'Done' ? '#059669' : r.status === 'Ongoing' ? '#2563eb' : r.status === 'Not Started' ? '#dc2626' : r.status === 'Hold' ? '#d97706' : r.status === 'Client Changes' ? '#7c3aed' : '#64748b';
+                return `<tr>
                     <td style="font-size:0.8rem;color:var(--text-secondary);">${i+1}</td>
+                    <td style="font-weight:600;white-space:nowrap;">${employeeName}</td>
                     <td>${r.date||'—'}</td>
-                    <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.project_name}">${r.project_name}</td>
-                    <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.client_name}</td>
-                    <td><span style="color:${sc};font-weight:600;font-size:0.82rem;">${r.status}</span></td>
-                    <td><span class="badge badge-${(r.priority||'').toLowerCase()}">${r.priority}</span></td>
-                    <td style="font-size:0.82rem;color:${overdue?'var(--danger)':'inherit'};">${r.deadline_date||'—'}</td>
-                    <td style="text-align:center;">${r.edit_count > 0 ? `<span class="badge badge-ongoing" style="font-size:0.68rem;">${r.edit_count}</span>` : '<span style="color:var(--text-secondary);font-size:0.8rem;">0</span>'}</td>
-                    <td>
-                        <button class="btn btn-outline btn-sm" onclick="openEdit(${r.id})"><i class="fa-solid fa-pen"></i> Edit</button>
-                    </td>
+                    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.client_name || ''}">${r.client_name || '—'}</td>
+                    <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.project_name || ''}">${r.project_name || '—'}</td>
+                    <td><span style="display:inline-block;padding:0.28rem 0.55rem;border-radius:10px;font-size:0.78rem;font-weight:700;color:white;background:${statusColor};">${r.status||'—'}</span></td>
+                    <td>${r.start_date || '—'}</td>
+                    <td>${r.end_date || '—'}</td>
+                    <td>${r.deadline_date || '—'}</td>
+                    <td>${r.video_duration ? `${r.video_duration} hrs` : '—'}</td>
+                    <td>${r.shoot_type || '—'}</td>
+                    <td>${driveUpload}</td>
+                    <td>${r.harddisk_number || '—'}</td>
+                    <td>${r.pc_number || '—'}</td>
+                    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.folder_name || ''}">${r.folder_name || '—'}</td>
+                    <td style="max-width:220px;overflow:hidden:text-overflow:ellipsis;white-space:nowrap;">${driveLink}</td>
+                    <td style="text-align:right;white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="openEdit(${r.id})"><i class="fa-solid fa-pen"></i> Edit</button></td>
                 </tr>`;
             }).join('');
         }
@@ -391,8 +554,9 @@
             document.getElementById('e-deadline').value = r.deadline_date || '';
             document.getElementById('e-drive').value = r.drive_link || '';
             document.getElementById('e-folder').value = r.folder_name || '';
-            document.getElementById('e-comments').value = r.comments || '';
+            document.getElementById('e-pc-number').value = r.pc_number || '';
             document.getElementById('e-drive-uploaded').value = r.uploaded_to_drive ? 'Yes' : 'No';
+            document.getElementById('edit-drive-link-row').style.display = r.uploaded_to_drive ? 'block' : 'none';
             document.getElementById('edit-msg').style.display = 'none';
             document.getElementById('edit-modal').classList.add('active');
         }
@@ -407,8 +571,8 @@
                 priority: document.getElementById('e-priority').value,
                 deadline_date: document.getElementById('e-deadline').value || null,
                 drive_link: document.getElementById('e-drive').value,
+                pc_number: document.getElementById('e-pc-number').value,
                 harddisk_directory: document.getElementById('e-folder').value,
-                comments: document.getElementById('e-comments').value,
                 uploaded_to_drive: document.getElementById('e-drive-uploaded').value,
             };
             const res = await fetch(`/api/employee/records/${id}`, {
@@ -432,7 +596,22 @@
         document.getElementById('add-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const fd = new FormData(e.target);
-            const body = Object.fromEntries(fd.entries());
+            const body = {};
+            for (const [key, value] of fd.entries()) {
+                if (body[key] !== undefined) {
+                    if (!Array.isArray(body[key])) body[key] = [body[key]];
+                    body[key].push(value);
+                } else {
+                    body[key] = value;
+                }
+            }
+            if (Array.isArray(body.editing_type)) body.editing_type = body.editing_type.join(', ');
+            if (Array.isArray(body.shoot_type)) body.shoot_type = body.shoot_type.join(', ');
+            if (!body.editing_type || !body.shoot_type) {
+                document.getElementById('add-alert-text').textContent = 'Please select at least one editing type and one shoot type.';
+                document.getElementById('add-alert').style.display='flex';
+                return;
+            }
             // Convert numeric fields
             body.video_duration = parseFloat(body.video_duration);
             body.cameras_used = parseInt(body.cameras_used);
@@ -446,6 +625,7 @@
                 document.getElementById('add-success-text').textContent = data.message;
                 document.getElementById('add-success').style.display='flex';
                 e.target.reset();
+                setDefaultProductivityDate();
                 await loadRecords();
             } else {
                 document.getElementById('add-alert-text').textContent = data.detail || 'Error adding record.';
@@ -486,6 +666,69 @@
                     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.6rem;">${changesHtml||'<span style="color:var(--text-secondary);font-size:0.82rem;">No field changes detected.</span>'}</div>
                 </div>`;
             }).join('');
+        }
+
+        async function loadTasks() {
+            const res = await fetch('/api/employee/records');
+            if (!res.ok) return;
+            const data = await res.json();
+            allTasks = data.records;
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const statusF = document.getElementById('filter-status').value;
+            const priorityF = document.getElementById('filter-priority').value;
+            const filtered = allTasks.filter(t => {
+                if (statusF && t.status !== statusF) return false;
+                if (priorityF && t.priority !== priorityF) return false;
+                return true;
+            });
+            const container = document.getElementById('task-list');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">No tasks found.</div>';
+                return;
+            }
+            const today = new Date().toISOString().split('T')[0];
+            container.innerHTML = filtered.map(t => {
+                const dr = t.deadline_date ? Math.ceil((new Date(t.deadline_date) - new Date()) / 86400000) : null;
+                const isOverdue = dr !== null && dr < 0 && t.status !== 'Done';
+                const isDueToday = dr === 0;
+                const priorityCls = (t.priority || '').toLowerCase();
+                const statusColors = { 'Done':'#059669','Ongoing':'#2563eb','Not Started':'#dc2626','Hold':'#d97706' };
+                const sc = statusColors[t.status] || '#64748b';
+                return `
+                <div class="task-card ${isOverdue?'overdue':isDueToday?'due-today':''}">
+                    <div style="width:4px;border-radius:4px;background:${sc};flex-shrink:0;align-self:stretch;"></div>
+                    <div class="task-meta">
+                        <div class="task-name">${t.project_name}</div>
+                        <div class="task-sub">${t.client_name} · ${t.editing_type || ''}</div>
+                        ${t.task_description ? `<div class="task-sub" style="margin-top:0.2rem;">${t.task_description.slice(0,80)}…</div>` : ''}
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;flex-shrink:0;">
+                        <span class="badge badge-${priorityCls}">${t.priority}</span>
+                        ${t.deadline_date ? `<span style="font-size:0.75rem;color:${isOverdue?'var(--danger)':isDueToday?'var(--warning)':'var(--text-secondary)'};">
+                            <i class="fa-solid fa-calendar"></i> ${t.deadline_date}</span>` : ''}
+                            <select onchange="updateStatus(${t.id}, this.value)" class="form-control" style="padding:0.3rem 0.5rem;font-size:0.78rem;width:auto;">
+                            <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
+                            <option ${t.status==='Ongoing'?'selected':''}>Ongoing</option>
+                            <option ${t.status==='Hold'?'selected':''}>Hold</option>
+                            <option ${t.status==='Done'?'selected':''}>Done</option>
+                            <option ${t.status==='Client Changes'?'selected':''}>Client Changes</option>
+                        </select>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function updateStatus(id, status) {
+            const res = await fetch(`/api/employee/task/${id}/status`, {
+                method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status})
+            });
+            if (res.ok) {
+                const idx = allTasks.findIndex(t => t.id === id);
+                if (idx !== -1) allTasks[idx].status = status;
+            }
         }
 
         async function logout() { await fetch('/api/logout',{method:'POST'}); window.location.href='/login'; }

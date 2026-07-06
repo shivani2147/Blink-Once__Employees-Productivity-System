@@ -39,6 +39,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
+    function updateAdminNavSticky() {
+        const adminNav = document.querySelector('.admin-nav-secondary');
+        const navbar = document.querySelector('.navbar');
+        if (!adminNav) return;
+        adminNav.style.top = navbar ? `${navbar.offsetHeight}px` : '0px';
+    }
+
+    window.addEventListener('resize', updateAdminNavSticky);
+    updateAdminNavSticky();
+
     // Create the theme toggle button
     const toggleBtn = document.createElement("button");
     toggleBtn.id = "theme-toggle";

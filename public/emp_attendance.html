@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance & To-Do | Blink Once EPS</title>
+    <title>Attendance & WFH | Blink Once EPS</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="/static/js/theme.js"></script>
@@ -116,10 +116,11 @@
         <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
         <nav class="sidebar-nav">
             <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
-            <a href="/employee/attendance" class="active"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/attendance" class="active"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
             <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
             <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
             <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -137,7 +138,7 @@
     <!-- Main -->
     <div class="page-wrapper">
         <header class="topbar">
-            <div class="topbar-title"><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Attendance & To-Do</div>
+            <div class="topbar-title"><i class="fa-solid fa-fingerprint" style="color:var(--accent-primary)"></i> Attendance & WFH</div>
             <div style="font-size:0.85rem;color:var(--text-secondary);" id="today-date"></div>
         </header>
         <div class="page-content fade-in">
@@ -145,7 +146,6 @@
             <!-- Sub-tabs -->
             <div class="sub-tabs">
                 <button class="tab-btn active" onclick="switchTab('attendance', this)"><i class="fa-solid fa-fingerprint"></i> Attendance</button>
-                <button class="tab-btn" onclick="switchTab('todo', this)"><i class="fa-solid fa-list-check"></i> To-Do List</button>
                 <button class="tab-btn" onclick="switchTab('wfh', this)"><i class="fa-solid fa-house-laptop"></i> Work From Home <span id="wfh-pending-badge" style="display:none;background:#f59e0b;color:white;border-radius:10px;padding:0 6px;font-size:0.7rem;margin-left:2px;"></span></button>
                 <button class="tab-btn" onclick="switchTab('history', this)"><i class="fa-solid fa-calendar-days"></i> Attendance History</button>
             </div>
@@ -213,31 +213,6 @@
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- === TO-DO TAB === -->
-            <div id="tab-todo" class="tab-content">
-                <div class="glass-panel" style="padding:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
-                        <h3 style="margin:0;"><i class="fa-solid fa-list-check" style="color:var(--accent-primary)"></i> My Tasks</h3>
-                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                            <select id="filter-status" class="form-control" style="width:auto;padding:0.4rem 0.8rem;font-size:0.82rem;" onchange="renderTasks()">
-                                <option value="">All Status</option>
-                                <option value="Not Started">Not Started</option>
-                                <option value="Ongoing">Ongoing</option>
-                                <option value="Hold">Hold</option>
-                                <option value="Done">Done</option>
-                            </select>
-                            <select id="filter-priority" class="form-control" style="width:auto;padding:0.4rem 0.8rem;font-size:0.82rem;" onchange="renderTasks()">
-                                <option value="">All Priority</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="task-list">Loading tasks…</div>
                 </div>
             </div>
 
@@ -317,9 +292,30 @@
         </div>
     </div>
 
+    <!-- Off-Time Reason Modal -->
+    <div id="offtime-modal" class="half-day-modal">
+        <div class="half-day-box">
+            <h3 style="margin-bottom:0.5rem;"><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Late Punch-In Reason</h3>
+            <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1.25rem;">
+                You're punching in after your scheduled start time. Please provide a reason to continue.
+            </p>
+            <div class="form-group">
+                <label class="required">Reason</label>
+                <textarea id="offtime-reason" class="form-control" rows="3" placeholder="E.g., traffic delay, personal emergency…"></textarea>
+            </div>
+            <div style="display:flex;gap:0.75rem;">
+                <button class="btn btn-punch-in" style="flex:1;" onclick="submitLatePunchInReason()">
+                    <i class="fa-solid fa-right-to-bracket"></i> Submit
+                </button>
+                <button class="btn btn-outline" onclick="closeOfftimeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let currentLat = null, currentLon = null, allTasks = [], todayAtt = null;
+        let currentLat = null, currentLon = null, todayAtt = null;
         let pendingPunchOutHours = 0;
+        let currentEmployeeName = '';
         let wfhApprovedToday = false;
 
         document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -340,13 +336,20 @@
                 const me = await meRes.json();
                 if (me.role === 'Admin') { window.location.href = '/admin/dashboard'; return; }
                 document.getElementById('sb-name').textContent = me.employee_name || '—';
+                const initials = (me.employee_name || 'Employee').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+                const sbAvatar = document.getElementById('sb-avatar');
+                if (me.photo_path) {
+                    sbAvatar.innerHTML = `<img src="/${me.photo_path.replace(/^\/+/, '')}" alt="avatar">`;
+                } else {
+                    sbAvatar.textContent = initials;
+                }
+                currentEmployeeName = me.employee_name || '';
             } catch(e) { window.location.href = '/login'; return; }
 
             await loadOfficeLocation();
             detectGPS();
             await loadWfhStatus();  // must come before loadAttendance to update UI
             await loadAttendance();
-            await loadTasks();
             await loadHistory();
             await loadWfhHistory();
         });
@@ -442,10 +445,18 @@
             if (att.time_out) document.getElementById('btn-punchout').disabled = true;
         }
 
-        async function doPunchIn() {
+        async function doPunchIn(reason = null) {
             showAlert('', false);
             const btn = document.getElementById('btn-punchin');
             btn.disabled = true;
+
+            const now = new Date();
+            const shiftStart = getEmployeeShiftStart(currentEmployeeName);
+            if (!reason && now > new Date(shiftStart.getTime() + 15 * 60 * 1000)) {
+                showOfftimeModal();
+                btn.disabled = false;
+                return;
+            }
 
             let location = null;
             if (wfhApprovedToday) {
@@ -463,6 +474,7 @@
             }
 
             const body = location ? { latitude: location.latitude, longitude: location.longitude } : {};
+            if (reason) body.reason = reason;
             const res = await fetch('/api/employee/attendance/punch-in', {
                 method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
             });
@@ -476,6 +488,40 @@
                 document.getElementById('today-in').textContent = data.time_in || 'Now';
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Punched In';
             }
+        }
+
+        function getEmployeeShiftStart(name) {
+            const normalized = (name || '').trim().toLowerCase();
+            const shift = new Date();
+            shift.setSeconds(0);
+            shift.setMilliseconds(0);
+            if (normalized === 'mayuri') {
+                shift.setHours(12, 30, 0, 0);
+            } else if (normalized === 'shubham mehta') {
+                shift.setHours(12, 0, 0, 0);
+            } else {
+                shift.setHours(10, 30, 0, 0);
+            }
+            return shift;
+        }
+
+        function showOfftimeModal() {
+            document.getElementById('offtime-reason').value = '';
+            document.getElementById('offtime-modal').classList.add('active');
+        }
+
+        function closeOfftimeModal() {
+            document.getElementById('offtime-modal').classList.remove('active');
+        }
+
+        function submitLatePunchInReason() {
+            const reason = document.getElementById('offtime-reason').value.trim();
+            if (!reason) {
+                showAlert('Please provide a reason to punch in late.', true);
+                return;
+            }
+            closeOfftimeModal();
+            doPunchIn(reason);
         }
 
         async function initPunchOut() {
@@ -548,68 +594,6 @@
             document.getElementById('success-text').textContent = msg;
             box.style.display = 'flex';
             setTimeout(() => { box.style.display = 'none'; }, 4000);
-        }
-
-        async function loadTasks() {
-            const res = await fetch('/api/employee/records');
-            if (!res.ok) return;
-            const data = await res.json();
-            allTasks = data.records;
-            renderTasks();
-        }
-
-        function renderTasks() {
-            const statusF = document.getElementById('filter-status').value;
-            const priorityF = document.getElementById('filter-priority').value;
-            const filtered = allTasks.filter(t => {
-                if (statusF && t.status !== statusF) return false;
-                if (priorityF && t.priority !== priorityF) return false;
-                return true;
-            });
-            const container = document.getElementById('task-list');
-            if (filtered.length === 0) {
-                container.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:3rem 0;">No tasks found.</div>';
-                return;
-            }
-            const today = new Date().toISOString().split('T')[0];
-            container.innerHTML = filtered.map(t => {
-                const dr = t.deadline_date ? Math.ceil((new Date(t.deadline_date) - new Date()) / 86400000) : null;
-                const isOverdue = dr !== null && dr < 0 && t.status !== 'Done';
-                const isDueToday = dr === 0;
-                const priorityCls = (t.priority || '').toLowerCase();
-                const statusColors = { 'Done':'#059669','Ongoing':'#2563eb','Not Started':'#dc2626','Hold':'#d97706' };
-                const sc = statusColors[t.status] || '#64748b';
-                return `
-                <div class="task-card ${isOverdue?'overdue':isDueToday?'due-today':''}">
-                    <div style="width:4px;border-radius:4px;background:${sc};flex-shrink:0;align-self:stretch;"></div>
-                    <div class="task-meta">
-                        <div class="task-name">${t.project_name}</div>
-                        <div class="task-sub">${t.client_name} · ${t.editing_type || ''}</div>
-                        ${t.task_description ? `<div class="task-sub" style="margin-top:0.2rem;">${t.task_description.slice(0,80)}…</div>` : ''}
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;flex-shrink:0;">
-                        <span class="badge badge-${priorityCls}">${t.priority}</span>
-                        ${t.deadline_date ? `<span style="font-size:0.75rem;color:${isOverdue?'var(--danger)':isDueToday?'var(--warning)':'var(--text-secondary)'};">
-                            <i class="fa-solid fa-calendar"></i> ${t.deadline_date}</span>` : ''}
-                        <select onchange="updateStatus(${t.id}, this.value)" class="form-control" style="padding:0.3rem 0.5rem;font-size:0.78rem;width:auto;">
-                            <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
-                            <option ${t.status==='Ongoing'?'selected':''}>Ongoing</option>
-                            <option ${t.status==='Hold'?'selected':''}>Hold</option>
-                            <option ${t.status==='Done'?'selected':''}>Done</option>
-                        </select>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        async function updateStatus(id, status) {
-            const res = await fetch(`/api/employee/task/${id}/status`, {
-                method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status})
-            });
-            if (res.ok) {
-                const idx = allTasks.findIndex(t => t.id === id);
-                if (idx !== -1) allTasks[idx].status = status;
-            }
         }
 
         async function loadHistory() {

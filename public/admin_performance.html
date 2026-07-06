@@ -60,17 +60,6 @@
         .perc-pill{display:inline-flex;align-items:center;gap:0.35rem;font-size:0.82rem;font-weight:600;}
         .chart-panel{padding:1.5rem;}
 
-        /* Trend panel */
-        .trend-panel{padding:1.5rem;margin-bottom:2rem;}
-        .trend-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:1.25rem;}
-        .trend-header h3{font-size:1rem;margin:0;}
-        .trend-legend{display:flex;flex-wrap:wrap;gap:0.5rem 1rem;align-items:center;}
-        .trend-legend-item{display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:500;cursor:pointer;padding:0.25rem 0.5rem;border-radius:6px;transition:background 0.2s;}
-        .trend-legend-item:hover{background:rgba(0,0,0,0.04);}
-        .dark-theme .trend-legend-item:hover{background:rgba(255,255,255,0.05);}
-        .trend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-        .trend-controls{display:flex;align-items:center;gap:0.6rem;}
-        .trend-controls label{font-size:0.78rem;color:var(--text-secondary);font-weight:500;white-space:nowrap;}
     </style>
 </head>
 <body>
@@ -117,8 +106,8 @@
             </select></div>
             <div class="form-group"><label>Date</label><input type="number" id="f-day" class="form-control" min="1" max="31" placeholder="1-31"></div>
             <div style="display:flex;gap:0.5rem;align-items:flex-end;">
-                <button class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Apply</button>
-                <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+                <button type="button" class="btn btn-primary" onclick="loadData()"><i class="fa-solid fa-filter"></i> Apply</button>
+                <button type="button" class="btn btn-outline" onclick="clearFilters()">Clear</button>
             </div>
         </div>
     </div>
@@ -126,7 +115,6 @@
     <!-- Summary Stats -->
     <div class="stat-cards-row mb-4">
         <div class="stat-mini glass-panel"><div class="label">Total Employees</div><div class="value gradient-text" id="s-total">—</div></div>
-        <div class="stat-mini glass-panel"><div class="label">Present Today</div><div class="value" style="color:var(--success)" id="s-present">—</div></div>
         <div class="stat-mini glass-panel"><div class="label">On-Time Rate</div><div class="value" style="color:var(--info)" id="s-ontime">—%</div></div>
         <div class="stat-mini glass-panel"><div class="label">Best Performer</div><div class="value gradient-text" style="font-size:1rem;padding-top:0.5rem;" id="s-best">—</div></div>
     </div>
@@ -140,40 +128,6 @@
                 <p class="text-secondary" style="font-size:0.88rem;">Loading...</p>
             </div>
         </div>
-
-        <!-- Charts -->
-        <div class="glass-panel chart-panel">
-            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-chart-pie" style="color:var(--accent-primary)"></i> Today's Attendance</h3>
-            <canvas id="attChart" height="180"></canvas>
-        </div>
-    </div>
-
-    <div class="mid-grid">
-        <div class="glass-panel chart-panel">
-            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-chart-bar" style="color:var(--info)"></i> Tasks Completed per Employee</h3>
-            <canvas id="tasksChart" height="220"></canvas>
-        </div>
-        <!-- Needs Attention -->
-        <div class="glass-panel chart-panel">
-            <h3 style="font-size:1rem;margin-bottom:1.25rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Needs Attention</h3>
-            <div id="attention-list" class="leaderboard"></div>
-        </div>
-    </div>
-
-    <!-- Performance Trend -->
-    <div class="glass-panel trend-panel">
-        <div class="trend-header">
-            <h3><i class="fa-solid fa-chart-line" style="color:var(--accent-primary)"></i> Performance Trend <span style="font-size:0.75rem;font-weight:400;color:var(--text-secondary);">(Last 6 Months)</span></h3>
-            <div class="trend-controls">
-                <label for="trend-emp-filter"><i class="fa-solid fa-filter" style="font-size:0.7rem;"></i> Focus on:</label>
-                <select id="trend-emp-filter" class="form-control" style="width:auto;font-size:0.82rem;padding:0.3rem 0.6rem;"
-                        onchange="highlightTrendEmployee(this.value)">
-                    <option value="">All Employees</option>
-                </select>
-            </div>
-        </div>
-        <div id="trend-legend" class="trend-legend" style="margin-bottom:1rem;"></div>
-        <canvas id="trendChart" height="120"></canvas>
     </div>
 
     <!-- Per-Employee Table -->
@@ -204,8 +158,6 @@
 
 <script src="/static/js/main.js"></script>
 <script>
-let attChart = null, tasksChart = null, trendChart = null;
-let _trendData = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -217,9 +169,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch { location.href='/login'; return; }
 
     populateYearFilter();
-
-    populateYearFilter();
-
     await loadEmployees();
     await loadData();
 });
@@ -227,11 +176,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 function populateYearFilter() {
     const select = document.getElementById('f-year');
     select.innerHTML = '<option value="">All</option>';
-    const option = document.createElement('option');
-    option.value = '2026';
-    option.textContent = '2026';
-    select.appendChild(option);
-    select.value = '2026';
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        select.appendChild(option);
+    }
+    select.value = '';
 }
 
 async function loadEmployees() {
@@ -248,33 +200,27 @@ async function loadData() {
     const month = document.getElementById('f-month').value;
     const day = document.getElementById('f-day').value;
     const params = new URLSearchParams();
-    if (emp)  params.set('employee_id', emp);
-    if (year) params.set('year', year);
+    if (emp)   params.set('employee_id', emp);
+    if (year)  params.set('year', year);
     if (month) params.set('month', month);
-    if (day) params.set('day', day);
+    if (day)   params.set('day', day);
 
-    const res = await fetch('/api/admin/performance-data?' + params);
-    if (!res.ok) return;
+    const query = params.toString();
+    const url = '/api/admin/performance-data' + (query ? '?' + query : '');
+    const res = await fetch(url);
+    if (!res.ok) {
+        console.error('Failed to fetch performance data', res.status, await res.text());
+        return;
+    }
     const d = await res.json();
 
     // Summary stats
     document.getElementById('s-total').textContent   = d.summary.total_employees;
-    document.getElementById('s-present').textContent = d.summary.present_today;
     document.getElementById('s-ontime').textContent  = d.summary.overall_on_time_rate + '%';
     document.getElementById('s-best').textContent    = d.summary.best_performer || '—';
 
     // Leaderboard (top 5 by score)
     renderLeaderboard(d.employees.slice(0,5));
-
-    // Needs Attention
-    renderAttention(d.insights.needs_attention || []);
-
-    // Charts
-    renderAttChart(d.charts.attendance_pie);
-    renderTasksChart(d.charts.tasks_bar);
-
-    // Performance Trend
-    if (d.trend) renderTrendChart(d.trend);
 
     // Table
     renderTable(d.employees);
@@ -301,74 +247,12 @@ function renderLeaderboard(emps) {
                 <strong>${e.name}</strong>
                 <small>${e.designation||e.department||'—'}</small>
             </div>
-            <div style="text-align:right;">
-                <div class="score-chip score-${scoreClass(e.score)}">${e.score}</div>
-                <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:0.2rem;">${e.completed} tasks done</div>
+            <div style="text-align:right;min-width:140px;display:grid;gap:0.25rem;">
+                <div class="score-chip" style="background:rgba(59,130,246,0.12);color:#2563eb;">Completed: ${e.completed}</div>
+                <div class="score-chip" style="background:rgba(34,197,94,0.12);color:#16a34a;">Assigned: ${e.assigned}</div>
             </div>
         </div>
     `).join('');
-}
-
-function renderAttention(emps) {
-    const el = document.getElementById('attention-list');
-    if (!emps.length) {
-        el.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text-secondary);font-size:0.88rem;"><i class="fa-solid fa-face-smile" style="font-size:2rem;display:block;margin-bottom:0.5rem;opacity:0.4;"></i>All employees performing well!</div>`;
-        return;
-    }
-    el.innerHTML = emps.map(e => `
-        <div class="lb-row">
-            <div class="emp-avatar" style="background:linear-gradient(135deg,#dc2626,#ef4444)">${initials(e.name)}</div>
-            <div class="lb-info">
-                <strong>${e.name}</strong>
-                <small>${e.pending} pending · ${e.attendance_perc}% attendance</small>
-            </div>
-            <div class="score-chip score-attention">${e.score}</div>
-        </div>
-    `).join('');
-}
-
-function renderAttChart(pie) {
-    const ctx = document.getElementById('attChart').getContext('2d');
-    const isDark = document.documentElement.classList.contains('dark-theme');
-    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    const textCol = isDark ? '#94a3b8' : '#475569';
-    if (attChart) { attChart.data.datasets[0].data = pie.data; attChart.update(); return; }
-    attChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: pie.labels,
-            datasets: [{ data: pie.data, backgroundColor: ['rgba(5,150,105,0.8)','rgba(217,119,6,0.8)','rgba(220,38,38,0.8)'], borderWidth: 0, borderRadius: 4 }]
-        },
-        options: {
-            responsive: true, cutout: '65%',
-            plugins: {
-                legend: { position: 'bottom', labels: { color: textCol, padding: 16, usePointStyle: true } }
-            }
-        }
-    });
-}
-
-function renderTasksChart(bar) {
-    const ctx = document.getElementById('tasksChart').getContext('2d');
-    const isDark = document.documentElement.classList.contains('dark-theme');
-    const textCol = isDark ? '#94a3b8' : '#475569';
-    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    if (tasksChart) { tasksChart.data.labels=bar.labels; tasksChart.data.datasets[0].data=bar.data; tasksChart.update(); return; }
-    tasksChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: bar.labels,
-            datasets: [{ label: 'Tasks Completed', data: bar.data, backgroundColor: 'rgba(99,102,241,0.6)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 6 }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero:true, ticks:{color:textCol,stepSize:1}, grid:{color:gridCol} },
-                x: { ticks:{color:textCol,maxRotation:30}, grid:{display:false} }
-            },
-            plugins: { legend: { labels: { color:textCol } } }
-        }
-    });
 }
 
 function renderTable(emps) {
@@ -408,103 +292,7 @@ function renderTable(emps) {
     }).join('');
 }
 
-function renderTrendChart(trend) {
-    _trendData = trend;
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    const isDark = document.documentElement.classList.contains('dark-theme');
-    const gridCol = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    const tickCol = isDark ? '#94a3b8' : '#475569';
-
-    // Populate focus-employee dropdown
-    const sel = document.getElementById('trend-emp-filter');
-    const currentVal = sel.value;
-    sel.innerHTML = '<option value="">All Employees</option>';
-    trend.datasets.forEach(ds => {
-        const opt = document.createElement('option');
-        opt.value = ds.emp_id;
-        opt.textContent = ds.name;
-        sel.appendChild(opt);
-    });
-    sel.value = currentVal;
-
-    // Build Chart.js datasets
-    const datasets = trend.datasets.map(ds => ({
-        label: ds.name,
-        data: ds.data,
-        borderColor: ds.color,
-        backgroundColor: ds.color + '18',
-        tension: 0.4,
-        fill: false,
-        pointBackgroundColor: ds.color,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        borderWidth: 2,
-        borderDash: [],
-    }));
-
-    if (trendChart) { trendChart.destroy(); trendChart = null; }
-    trendChart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: trend.labels, datasets },
-        options: {
-            responsive: true,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#fff',
-                    titleColor: isDark ? '#e2e8f0' : '#1e293b',
-                    bodyColor: isDark ? '#94a3b8' : '#475569',
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                    borderWidth: 1,
-                    padding: 10,
-                    callbacks: {
-                        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
-                    }
-                }
-            },
-            scales: {
-                y: { beginAtZero: true, max: 100, ticks: { color: tickCol }, grid: { color: gridCol } },
-                x: { ticks: { color: tickCol }, grid: { display: false } }
-            }
-        }
-    });
-
-    // Render custom legend
-    const legendEl = document.getElementById('trend-legend');
-    legendEl.innerHTML = trend.datasets.map(ds => {
-        const lastScore = ds.data[ds.data.length - 1];
-        return `<div class="trend-legend-item" onclick="highlightTrendEmployee('${ds.emp_id}')" title="Click to focus">
-            <div class="trend-dot" style="background:${ds.color};"></div>
-            <span>${ds.name}</span>
-            <span style="font-size:0.72rem;font-weight:700;color:${ds.color};">${lastScore}</span>
-        </div>`;
-    }).join('');
-}
-
-function highlightTrendEmployee(empId) {
-    if (!trendChart || !_trendData) return;
-    document.getElementById('trend-emp-filter').value = empId;
-    trendChart.data.datasets.forEach((ds, i) => {
-        if (!empId || String(_trendData.datasets[i].emp_id) === String(empId)) {
-            ds.borderWidth = 3;
-            ds.pointRadius = 5;
-            ds.borderDash  = [];
-        } else {
-            ds.borderWidth = 1;
-            ds.pointRadius = 2;
-            ds.borderDash  = [4, 4];
-        }
-    });
-    trendChart.update();
-}
-
 function clearFilters() {
-    const today = new Date();
-    const from  = new Date(); from.setDate(today.getDate()-30);
-    document.getElementById('f-to').value   = today.toISOString().split('T')[0];
-    document.getElementById('f-from').value = from.toISOString().split('T')[0];
-    document.getElementById('f-dept').value = '';
     document.getElementById('f-emp').value  = '';
     document.getElementById('f-year').value = '';
     document.getElementById('f-month').value = '';

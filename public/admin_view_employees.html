@@ -16,11 +16,25 @@
         .search-box { margin-bottom: 1.5rem; }
         .employee-table { width: 100%; border-collapse: collapse; background: #fff; }
         .employee-table thead { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
-        .employee-table th, .employee-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .employee-table th, .employee-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e0e0e0; vertical-align: middle; }
         .employee-table tbody tr:hover { background: #f5f5f5; }
-        .employee-table tbody tr { cursor: pointer; }
-        .btn-view { background: #667eea; color: white; border: none; padding: 0.4rem 0.8rem; cursor: pointer; border-radius: 4px; font-size: 0.9rem; }
+        .employee-table tbody tr { cursor: default; }
+        .employee-table td.action-cell { white-space: nowrap; width: 1%; }
+        .action-buttons { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
+        .btn-view, .btn-edit {
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            min-width: 90px;
+            text-align: center;
+        }
+        .btn-view { background: #667eea; }
         .btn-view:hover { background: #5568d3; }
+        .btn-edit { background: #10b981; }
+        .btn-edit:hover { background: #0f9a6f; }
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); overflow: auto; }
         .modal-content { background: #fff; margin: 2rem auto; padding: 2rem; width: 90%; max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .close { color: #aaa; float: right; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
@@ -67,7 +81,6 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h2>View Employee Details</h2>
                 <div>
-                    <a href="/admin/performance" class="btn btn-primary" style="margin-right: 0.5rem;"><i class="fa-solid fa-award"></i> Performance Dashboard</a>
                     <a href="/admin/dashboard" class="btn btn-outline">← Back to Dashboard</a>
                 </div>
             </div>
@@ -80,13 +93,13 @@
                 <table class="employee-table" id="employees-table">
                     <thead>
                         <tr>
-                            <th>Employee Code</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Mobile</th>
-                            <th>Department</th>
+                            <th>Employee Type</th>
+                            <th>Full Name</th>
+                            <th>Email Address</th>
+                            <th>Mobile Number</th>
+                            <th>Date of Joining</th>
                             <th>Designation</th>
-                            <th>Joining Date</th>
+                            <th>Skills / Expertise</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -130,16 +143,25 @@
             }
             tbody.innerHTML = employees.map(emp => `
                 <tr>
-                    <td>${emp.employee_code || 'N/A'}</td>
+                    <td>${emp.role || 'N/A'}</td>
                     <td>${emp.employee_name || 'N/A'}</td>
                     <td>${emp.email || 'N/A'}</td>
                     <td>${emp.mobile_number || 'N/A'}</td>
-                    <td>${emp.department ? emp.department.replace(/,/g, ', ') : 'N/A'}</td>
-                    <td>${emp.designation ? emp.designation.replace(/,/g, ', ') : 'N/A'}</td>
                     <td>${emp.date_of_joining ? new Date(emp.date_of_joining).toLocaleDateString() : 'N/A'}</td>
-                    <td><button class="btn-view" onclick="showDetails(${emp.id})">View Details</button></td>
+                    <td>${emp.designation ? emp.designation.replace(/,/g, ', ') : 'N/A'}</td>
+                    <td>${emp.skills || 'N/A'}</td>
+                    <td class="action-cell">
+                        <div class="action-buttons">
+                            <button class="btn-view" onclick="showDetails(${emp.id})">View Details</button>
+                            <button class="btn-edit" onclick="gotoEdit(${emp.id})">Edit</button>
+                        </div>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        function gotoEdit(empId) {
+            window.location.href = '/admin/add-employee?edit=' + empId;
         }
 
         function showDetails(empId) {

@@ -128,7 +128,7 @@
                         <option value="Photographer">Photographer</option>
                         <option value="Freelance">Freelance</option>
                         <option value="Intern">Intern</option>
-                        <option value="Manager">Manager / Team Lead</option>
+                        <option value="Manager / Team Lead">Manager / Team Lead</option>
                     </select>
                 </div>
 
@@ -179,6 +179,7 @@
                 <div class="form-group">
                     <label>Passport Size Photo</label>
                     <input type="file" name="photo" accept="image/*" class="form-control">
+                    <div id="photo-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                 </div>
 
                 <h4 class="mt-4">Education Details</h4>
@@ -202,6 +203,7 @@
                 <div class="form-group">
                     <label>Upload Marksheet / Degree Certificate</label>
                     <input type="file" name="certificates" class="form-control">
+                    <div id="certificates-edu-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                 </div>
 
                 <h4 class="mt-4">Employment Details</h4>
@@ -294,20 +296,24 @@
                     <div class="form-group">
                         <label>Resume / CV</label>
                         <input type="file" name="resume" class="form-control">
+                        <div id="resume-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                     </div>
                     <div class="form-group">
                         <label>Aadhaar Front</label>
                         <input type="file" name="aadhaar_front" class="form-control">
+                        <div id="aadhaar_front-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                     </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Aadhaar Back</label>
                         <input type="file" name="aadhaar_back" class="form-control">
+                        <div id="aadhaar_back-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                     </div>
                     <div class="form-group">
                         <label>Certificates</label>
                         <input type="file" name="certificates" class="form-control">
+                        <div id="certificates-name" class="file-name-display" style="margin-top:0.5rem; font-size:0.85rem; color:#666;"></div>
                     </div>
                 </div>
 
@@ -374,16 +380,132 @@
         createMultiSelect('department_select', 'department_multi', 'dept_search', 'Select departments');
         createMultiSelect('designation_select', 'designation_multi', 'desig_search', 'Select designations');
 
+        let editEmployeeId = null;
+
+        function getQueryParam(name) {
+            return new URLSearchParams(window.location.search).get(name);
+        }
+
+        function setEditMode(id) {
+            editEmployeeId = id;
+            const title = document.querySelector('main h2');
+            const submitButton = document.querySelector('button[type="submit"]');
+            if (title) title.textContent = 'Edit Employee';
+            if (submitButton) submitButton.textContent = 'Update Employee';
+        }
+
+        function setMultiSelectValues(selectId, values) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const selectedValues = Array.isArray(values)
+                ? values
+                : (values || '').split(',').map(v => v.trim()).filter(Boolean);
+            Array.from(select.options).forEach(option => {
+                option.selected = selectedValues.includes(option.value);
+            });
+        }
+
+        async function loadEmployeeForEdit(id) {
+            if (!id) return;
+            const res = await fetch('/api/admin/employees?employee_id=' + encodeURIComponent(id));
+            if (!res.ok) return;
+            const data = await res.json();
+            const emp = (data.employees || [])[0];
+            if (!emp) return;
+
+            setEditMode(id);
+            document.querySelector('input[name="full_name"]').value = emp.employee_name || '';
+            document.querySelector('input[name="email"]').value = emp.email || '';
+            document.querySelector('input[name="mobile_number"]').value = emp.mobile_number || '';
+            document.querySelector('input[name="dob"]').value = emp.dob || '';
+            document.querySelector('select[name="gender"]').value = emp.gender || '';
+            document.querySelector('input[name="emergency_contact"]').value = emp.emergency_contact || '';
+            document.querySelector('textarea[name="address"]').value = emp.address || '';
+            document.querySelector('select[name="role"]').value = emp.role || 'Editor';
+            document.querySelector('input[name="date_of_joining"]').value = emp.date_of_joining || '';
+            document.querySelector('input[name="salary_amount"]').value = emp.salary_amount || '';
+            document.querySelector('input[name="experience"]').value = emp.experience || '';
+            document.querySelector('input[name="camera_skill_level"]').value = emp.camera_skill_level || '';
+            document.querySelector('textarea[name="skills"]').value = emp.skills || '';
+            document.querySelector('input[name="software_knowledge"]').value = emp.software_knowledge || '';
+            document.querySelector('select[name="highest_qualification"]').value = emp.highest_qualification || '';
+            document.querySelector('input[name="institution_name"]').value = emp.institution_name || '';
+            document.querySelector('select[name="salary_type"]').value = emp.salary_type || '';
+
+            setMultiSelectValues('department_select', emp.department);
+            setMultiSelectValues('designation_select', emp.designation);
+
+            const roleSelect = document.querySelector('select[name="role"]');
+            const roleValue = emp.role || 'Editor';
+            if (roleSelect) {
+                if (![...roleSelect.options].some(o => o.value === roleValue)) {
+                    const option = document.createElement('option');
+                    option.value = roleValue;
+                    option.textContent = roleValue;
+                    roleSelect.appendChild(option);
+                }
+                roleSelect.value = roleValue;
+            }
+        }
+
+        const editIdFromQuery = getQueryParam('edit');
+        if (editIdFromQuery) {
+            loadEmployeeForEdit(editIdFromQuery);
+        }
+
+        // Add file name display functionality
+        const fileInputs = [
+            { inputName: 'photo', displayId: 'photo-name' },
+            { inputName: 'resume', displayId: 'resume-name' },
+            { inputName: 'aadhaar_front', displayId: 'aadhaar_front-name' },
+            { inputName: 'aadhaar_back', displayId: 'aadhaar_back-name' },
+            { inputName: 'certificates', displayId: 'certificates-name' }
+        ];
+
+        fileInputs.forEach(({ inputName, displayId }) => {
+            const input = document.querySelector(`input[name="${inputName}"]`);
+            const display = document.getElementById(displayId);
+            if (input && display) {
+                input.addEventListener('change', () => {
+                    if (input.files.length > 0) {
+                        display.textContent = '📄 ' + input.files[0].name;
+                        display.style.color = '#059669';
+                    } else {
+                        display.textContent = '';
+                    }
+                });
+            }
+        });
+
+        // Also add for the certificates in Education section
+        const certificatesEduInputs = document.querySelectorAll('input[name="certificates"]');
+        if (certificatesEduInputs.length > 0) {
+            certificatesEduInputs[0].addEventListener('change', () => {
+                const display = document.getElementById('certificates-edu-name');
+                if (display) {
+                    if (certificatesEduInputs[0].files.length > 0) {
+                        display.textContent = '📄 ' + certificatesEduInputs[0].files[0].name;
+                        display.style.color = '#059669';
+                    } else {
+                        display.textContent = '';
+                    }
+                }
+            });
+        }
+
         document.getElementById('add-employee-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = document.getElementById('add-employee-form');
             const fd = new FormData(form);
-            const res = await fetch('/api/admin/add-employee', { method: 'POST', body: fd });
+            const isEdit = Boolean(editEmployeeId);
+            const url = isEdit ? '/api/admin/edit-employee/' + encodeURIComponent(editEmployeeId) : '/api/admin/add-employee';
+            const method = isEdit ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, body: fd });
             const data = await res.json();
             alert(data.message + (data.employee_code ? ' - ' + data.employee_code : ''));
             if (res.ok) {
                 form.reset();
-                window.location.href = '/admin/dashboard';
+                window.location.href = isEdit ? '/admin/view-employees' : '/admin/dashboard';
             }
         });
     </script>

@@ -95,10 +95,11 @@
         <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
         <nav class="sidebar-nav">
             <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
-            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
             <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
             <a href="/employee/leaves" class="active"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
             <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -228,7 +229,14 @@
                 if (!r.ok) { window.location.href='/login'; return; }
                 const me = await r.json();
                 if (me.role==='Admin') { window.location.href='/admin/dashboard'; return; }
-                document.getElementById('sb-name').textContent = me.employee_name;
+                document.getElementById('sb-name').textContent = me.employee_name || 'Employee';
+                const initials = (me.employee_name || 'Employee').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+                const sbAvatar = document.getElementById('sb-avatar');
+                if (me.photo_path) {
+                    sbAvatar.innerHTML = `<img src="/${me.photo_path.replace(/^\/+/, '')}" alt="avatar">`;
+                } else {
+                    sbAvatar.textContent = initials;
+                }
             } catch(e) { window.location.href='/login'; return; }
 
             await loadBalance();

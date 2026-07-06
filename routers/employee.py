@@ -3,13 +3,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import date, datetime, timedelta
+from calendar import monthrange
 from typing import Optional, List
 from database import get_db
 from models import (
     User, ProductivityRecord, Attendance, LeaveRequest,
     LeaveBalance, Holiday, OfficeLocation, ProductivityEditHistory
 )
-from auth import get_current_employee
+from auth import get_current_employee, get_password_hash
 from config import OFFICE_LOCATION_NAME, OFFICE_LATITUDE, OFFICE_LONGITUDE, OFFICE_RADIUS_METERS
 import math
 import json
@@ -50,12 +51,12 @@ class RecordCreate(BaseModel):
     priority: str = "Medium"
     task_description: str = ""
     harddisk_number: str = ""
+    pc_number: str = ""
     harddisk_directory: str = ""   # UI label: Folder Name (optional)
     uploaded_to_drive: str = "No"
     drive_link: str = ""
     shoot_type: str
     cameras_used: int
-    comments: str = ""
 
 class RecordUpdate(BaseModel):
     client_name: Optional[str] = None
@@ -69,12 +70,12 @@ class RecordUpdate(BaseModel):
     priority: Optional[str] = None
     task_description: Optional[str] = None
     harddisk_number: Optional[str] = None
+    pc_number: Optional[str] = None
     harddisk_directory: Optional[str] = None   # UI label: Folder Name
     uploaded_to_drive: Optional[str] = None
     drive_link: Optional[str] = None
     shoot_type: Optional[str] = None
     cameras_used: Optional[int] = None
-    comments: Optional[str] = None
 
 class StatusUpdate(BaseModel):
     status: str
@@ -90,17 +91,29 @@ class LeaveCreate(BaseModel):
     reason: str
 
 class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
     mobile_number: str
     address: str
+    designation: Optional[str] = None
+    experience: Optional[str] = None
+    camera_skill_level: Optional[str] = None
+    skills: Optional[str] = None
+    software_knowledge: Optional[str] = None
 
 class PunchRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    reason: Optional[str] = None
 
 class PunchOutRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     half_day_reason: Optional[str] = None
+
+class EmployeeSettingsUpdate(BaseModel):
+    username: str
+    password: Optional[str] = None
+    confirm_password: Optional[str] = None
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS
@@ -162,6 +175,109 @@ def _validate_gps(db: Session, lat: Optional[float], lon: Optional[float]) -> tu
         )
     return True, ""
 
+
+def _build_trend_series(records, attendance_records, today, year=None, month=None, day=None):
+    """Build a trend series for the selected period.
+
+    When a month filter is selected, return a day-by-day series for that month.
+    Otherwise, fall back to a 6-month trend view.
+    """
+    if month is not None:
+        target_year = year or today.year
+        target_month = month
+        last_day = monthrange(target_year, target_month)[1]
+        labels = [str(i) for i in range(1, last_day + 1)]
+        data = []
+
+        for day_number in range(1, last_day + 1):
+            day_date = date(target_year, target_month, day_number)
+            day_records = [r for r in records if getattr(r, "date", None) == day_date]
+            day_attendance = [a for a in attendance_records if getattr(a, "date", None) == day_date]
+
+            total_tasks = len(day_records)
+            done = len([r for r in day_records if getattr(r, "status", "") in ("Done", "Completed")])
+            pending = len([r for r in day_records if getattr(r, "status", "") not in ("Done", "Completed")])
+            overdue = len([
+                r for r in day_records
+                if getattr(r, "deadline_date", None) and getattr(r, "deadline_date", None) <= day_date and getattr(r, "status", "") not in ("Done", "Completed")
+            ])
+            client_changes = len([r for r in day_records if getattr(r, "status", "") == "Client Changes"])
+            present = len([a for a in day_attendance if getattr(a, "status", "") in ("Present", "Late", "Half Day")])
+
+            if total_tasks > 0:
+                comp_pct = (done / total_tasks * 100)
+                pending_pct = (pending / total_tasks * 100)
+                overdue_pct = (overdue / total_tasks * 100)
+                client_changes_pct = (client_changes / total_tasks * 100)
+            else:
+                comp_pct = 100.0
+                pending_pct = 0.0
+                overdue_pct = 0.0
+                client_changes_pct = 0.0
+
+            if day_attendance:
+                att_pct = (present / len(day_attendance) * 100)
+                score = (
+                    att_pct * 0.25
+                    + comp_pct * 0.25
+                    + (100 - pending_pct) * 0.15
+                    + (100 - overdue_pct) * 0.20
+                    + (100 - client_changes_pct) * 0.15
+                )
+            else:
+                score = 0.0
+
+            data.append(round(score, 1))
+
+        return {"labels": labels, "data": data}
+
+    trend_labels = []
+    trend_data = []
+    trend_year = year or today.year
+    last_month = today.month if trend_year == today.year else 12
+    for month_number in range(1, last_month + 1):
+        m_start = date(trend_year, month_number, 1)
+        last_day = monthrange(trend_year, month_number)[1]
+        m_end = date(trend_year, month_number, last_day)
+
+        m_tasks = [r for r in records if getattr(r, "date", None) and m_start <= r.date <= m_end]
+        total_tasks = len(m_tasks)
+        m_done = len([r for r in m_tasks if getattr(r, "status", "") in ("Done", "Completed")])
+        m_pending = len([r for r in m_tasks if getattr(r, "status", "") not in ("Done", "Completed")])
+        m_overdue = len([r for r in m_tasks if getattr(r, "deadline_date", None) and getattr(r, "deadline_date", None) <= m_end and getattr(r, "status", "") not in ("Done", "Completed")])
+        m_client_changes = len([r for r in m_tasks if getattr(r, "status", "") == "Client Changes"])
+
+        m_att = [a for a in attendance_records if m_start <= getattr(a, "date", None) <= m_end]
+        m_present = len([a for a in m_att if getattr(a, "status", "") in ("Present", "Late", "Half Day")])
+
+        if not m_tasks and not m_att:
+            m_score = 0.0
+        else:
+            m_att_pct = (m_present / len(m_att) * 100) if m_att else 100
+            if total_tasks > 0:
+                m_comp_pct = (m_done / total_tasks * 100)
+                m_pending_pct = (m_pending / total_tasks * 100)
+                m_overdue_pct = (m_overdue / total_tasks * 100)
+                m_client_changes_pct = (m_client_changes / total_tasks * 100)
+            else:
+                m_comp_pct = 100.0
+                m_pending_pct = 0.0
+                m_overdue_pct = 0.0
+                m_client_changes_pct = 0.0
+
+            score = (
+                m_att_pct * 0.25
+                + m_comp_pct * 0.25
+                + (100 - m_pending_pct) * 0.15
+                + (100 - m_overdue_pct) * 0.20
+                + (100 - m_client_changes_pct) * 0.15
+            )
+            m_score = round(score, 1)
+        trend_labels.append(m_start.strftime("%b %Y"))
+        trend_data.append(m_score)
+
+    return {"labels": trend_labels, "data": trend_data}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # DASHBOARD DATA
 # ══════════════════════════════════════════════════════════════════════════════
@@ -187,6 +303,16 @@ async def get_dashboard_data(
         "mobile_number": user.mobile_number,
         "address": user.address,
         "email": user.email,
+        "dob": user.dob.isoformat() if user.dob else None,
+        "gender": user.gender,
+        "emergency_contact": user.emergency_contact,
+        "highest_qualification": user.highest_qualification,
+        "institution_name": user.institution_name,
+        "salary_type": user.salary_type,
+        "experience": user.experience,
+        "skills": user.skills,
+        "software_knowledge": user.software_knowledge,
+        "camera_skill_level": user.camera_skill_level,
     }
 
     # --- Today's Attendance ---
@@ -221,6 +347,8 @@ async def get_dashboard_data(
         "pending": 0,
         "upcoming": 0,
         "leaves_taken": 0,
+        "overdue": 0,
+        "client_changes": 0,
     }
 
     for r in records:
@@ -230,12 +358,14 @@ async def get_dashboard_data(
             stats["pending"] += 1
             if r.status == "Not Started":
                 notifications.append(f"New Task Assigned: {r.client_name} (Priority: {r.priority})")
+        if r.status == "Client Changes":
+            stats["client_changes"] += 1
 
         task_data = {
             "id": r.id,
             "project_name": r.project_name,
             "client_name": r.client_name,
-            "task_description": r.task_description or r.comments,
+            "task_description": r.task_description,
             "status": r.status,
             "priority": r.priority,
             "deadline_date": r.deadline_date.isoformat() if r.deadline_date else None,
@@ -256,52 +386,59 @@ async def get_dashboard_data(
                     task_data["priority"] = "High"
                     upcoming_deadlines.append(task_data)
                     notifications.append(f"'{r.project_name}' is overdue by {-days_remaining} day(s)!")
+                    # Count overdue tasks (deadline passed and not completed)
+                    if r.status not in ("Done", "Completed"):
+                        stats["overdue"] += 1
 
     upcoming_deadlines.sort(key=lambda x: x.get("days_remaining", 999))
     if today_todo:
         notifications.append(f"You have {len(today_todo)} task(s) due today.")
 
     # --- Self Performance Stats ---
-    # Attendance percentage (last 30 days)
-    thirty_days_ago = today - timedelta(days=30)
+    # Attendance percentage based on the number of selected days
+    if year is not None and month is not None and day is not None:
+        period_start = date(year, month, day)
+        period_end = date(year, month, day)
+    elif year is not None and month is not None:
+        period_start = date(year, month, 1)
+        period_end = date(year, month, monthrange(year, month)[1])
+    elif year is not None:
+        period_start = date(year, 1, 1)
+        period_end = date(year, 12, 31)
+    else:
+        period_start = today - timedelta(days=30)
+        period_end = today
+
+    total_period_days = (period_end - period_start).days + 1
     att_records = db.query(Attendance).filter(
         Attendance.user_id == user.id,
-        Attendance.date >= thirty_days_ago,
-        Attendance.date <= today
+        Attendance.date >= period_start,
+        Attendance.date <= period_end
     ).all()
-    att_records = _filter_items_by_period(att_records, year, month, day)
-    total_att_days = len(att_records)
     present_days = len([a for a in att_records if a.status in ("Present", "Late", "Half Day")])
-    attendance_pct = round(present_days / total_att_days * 100, 1) if total_att_days > 0 else 100.0
+    attendance_pct = round(present_days / total_period_days * 100, 1) if total_period_days > 0 else 0.0
 
     # On-time completion %
     eval_tasks = [r for r in records if r.status in ("Done", "Completed") and r.deadline_date and r.end_date]
     on_time = len([r for r in eval_tasks if r.end_date <= r.deadline_date])
-    on_time_pct = round(on_time / len(eval_tasks) * 100, 1) if eval_tasks else 100.0
+    on_time_pct = round(on_time / len(eval_tasks) * 100, 1) if eval_tasks else 0.0
 
     # Monthly performance score
-    completion_pct = round(stats["completed"] / stats["assigned"] * 100, 1) if stats["assigned"] > 0 else 100.0
-    monthly_score = round(completion_pct * 0.4 + on_time_pct * 0.4 + attendance_pct * 0.2, 1)
+    completion_pct = round(stats["completed"] / stats["assigned"] * 100, 1) if stats["assigned"] > 0 else 0.0
+    pending_pct = round(stats["pending"] / stats["assigned"] * 100, 1) if stats["assigned"] > 0 else 0.0
+    overdue_pct = round(stats["overdue"] / stats["assigned"] * 100, 1) if stats["assigned"] > 0 else 0.0
+    client_changes_pct = round(stats["client_changes"] / stats["assigned"] * 100, 1) if stats["assigned"] > 0 else 0.0
+    monthly_score = round(
+        attendance_pct * 0.25
+        + completion_pct * 0.25
+        + (100 - pending_pct) * 0.15
+        + (100 - overdue_pct) * 0.20
+        + (100 - client_changes_pct) * 0.15,
+        1
+    )
 
-    # Performance trend (last 6 months)
-    trend_labels = []
-    trend_data = []
-    for i in range(5, -1, -1):
-        m_date = today.replace(day=1) - timedelta(days=i * 28)
-        m_start = m_date.replace(day=1)
-        if m_date.month == 12:
-            m_end = m_date.replace(day=31)
-        else:
-            m_end = (m_date.replace(month=m_date.month + 1, day=1) - timedelta(days=1))
-        m_tasks = [r for r in records if r.date and m_start <= r.date <= m_end]
-        m_done = len([r for r in m_tasks if r.status in ("Done", "Completed")])
-        m_att = [a for a in att_records if m_start <= a.date <= m_end]
-        m_present = len([a for a in m_att if a.status in ("Present", "Late", "Half Day")])
-        m_att_pct = (m_present / len(m_att) * 100) if m_att else 100
-        m_comp_pct = (m_done / len(m_tasks) * 100) if m_tasks else 100
-        m_score = round(m_comp_pct * 0.6 + m_att_pct * 0.4, 1)
-        trend_labels.append(m_date.strftime("%b %Y"))
-        trend_data.append(m_score)
+    # Performance trend
+    trend = _build_trend_series(records, att_records, today, year=year, month=month, day=day)
 
     # --- Leave History ---
     leaves = db.query(LeaveRequest).filter(LeaveRequest.user_id == user.id).order_by(LeaveRequest.start_date.desc()).all()
@@ -347,10 +484,7 @@ async def get_dashboard_data(
             "completion_pct": completion_pct,
             "monthly_score": monthly_score,
         },
-        "trend": {
-            "labels": trend_labels,
-            "data": trend_data,
-        }
+        "trend": trend
     }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -399,6 +533,8 @@ async def punch_in(req: PunchRequest, user: User = Depends(get_current_employee)
         att.status = "Present"
         if req.latitude: att.latitude = req.latitude
         if req.longitude: att.longitude = req.longitude
+        if req.reason:
+            att.half_day_reason = req.reason
     else:
         att = Attendance(
             user_id=user.id,
@@ -407,6 +543,7 @@ async def punch_in(req: PunchRequest, user: User = Depends(get_current_employee)
             time_in=now_str,
             latitude=req.latitude,
             longitude=req.longitude,
+            half_day_reason=req.reason if req.reason else None,
         )
         db.add(att)
     db.commit()
@@ -610,6 +747,7 @@ async def get_records(
             "id": r.id,
             "date": r.date.isoformat() if r.date else None,
             "client_name": r.client_name,
+            "employee_name": r.employee_name or "",
             "project_name": r.project_name,
             "status": r.status,
             "priority": r.priority,
@@ -619,7 +757,7 @@ async def get_records(
             "cameras_used": r.cameras_used,
             "expected_workload_hours": r.expected_workload_hours or 0,
             "drive_link": r.drive_link or "",
-            "comments": r.comments or "",
+            "pc_number": r.pc_number or "",
             "shoot_type": r.shoot_type,
             "editing_type": r.editing_type,
             "video_duration": r.video_duration,
@@ -650,12 +788,12 @@ async def add_record(req: RecordCreate, user: User = Depends(get_current_employe
         priority=req.priority,
         task_description=req.task_description,
         harddisk_number=req.harddisk_number,
+        pc_number=req.pc_number,
         harddisk_directory=req.harddisk_directory,   # "Folder Name"
         uploaded_to_drive=(req.uploaded_to_drive == "Yes"),
         drive_link=req.drive_link,
         shoot_type=req.shoot_type,
         cameras_used=req.cameras_used,
-        comments=req.comments,
         expected_workload_hours=expected_hours,
     )
     db.add(new_record)
@@ -682,7 +820,7 @@ async def edit_record(
         "status": record.status,
         "priority": record.priority,
         "drive_link": record.drive_link,
-        "comments": record.comments,
+        "pc_number": record.pc_number,
         "folder_name": record.harddisk_directory,
         "harddisk_number": record.harddisk_number,
         "task_description": record.task_description,
@@ -699,7 +837,7 @@ async def edit_record(
     if req.status is not None:        record.status = req.status
     if req.priority is not None:      record.priority = req.priority
     if req.drive_link is not None:    record.drive_link = req.drive_link
-    if req.comments is not None:      record.comments = req.comments
+    if req.pc_number is not None:     record.pc_number = req.pc_number
     if req.harddisk_directory is not None: record.harddisk_directory = req.harddisk_directory
     if req.harddisk_number is not None:    record.harddisk_number = req.harddisk_number
     if req.task_description is not None:   record.task_description = req.task_description
@@ -724,7 +862,7 @@ async def edit_record(
         "status": record.status,
         "priority": record.priority,
         "drive_link": record.drive_link,
-        "comments": record.comments,
+        "pc_number": record.pc_number,
         "folder_name": record.harddisk_directory,
         "harddisk_number": record.harddisk_number,
         "task_description": record.task_description,
@@ -909,10 +1047,13 @@ async def get_holidays(user: User = Depends(get_current_employee), db: Session =
 @router.get("/profile")
 async def get_profile(user: User = Depends(get_current_employee), db: Session = Depends(get_db)):
     u = db.query(User).filter(User.id == user.id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
     return {
         "id": u.id,
-        "employee_name": u.employee_name,
+        "employee_name": u.employee_name or u.username or "",
         "employee_code": u.employee_code,
+        "username": u.username,
         "email": u.email,
         "mobile_number": u.mobile_number,
         "dob": u.dob.isoformat() if u.dob else None,
@@ -941,6 +1082,24 @@ async def update_profile(req: ProfileUpdate, user: User = Depends(get_current_em
     u = db.query(User).filter(User.id == user.id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if req.username is not None and req.username.strip() != "":
+        existing = db.query(User).filter(User.username == req.username.strip()).first()
+        if existing and existing.id != u.id:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        u.username = req.username.strip()
+
+    if req.designation is not None:
+        u.designation = req.designation.strip()
+    if req.experience is not None:
+        u.experience = req.experience.strip()
+    if req.camera_skill_level is not None:
+        u.camera_skill_level = req.camera_skill_level.strip()
+    if req.skills is not None:
+        u.skills = req.skills.strip()
+    if req.software_knowledge is not None:
+        u.software_knowledge = req.software_knowledge.strip()
+
     u.mobile_number = req.mobile_number
     u.address = req.address
     db.commit()
@@ -973,3 +1132,22 @@ async def upload_profile_photo(
     u.photo_path = path.replace("\\", "/")
     db.commit()
     return {"message": "Photo uploaded successfully", "photo_path": u.photo_path}
+
+@router.put("/settings")
+async def update_employee_settings(
+    req: EmployeeSettingsUpdate,
+    request: Request,
+    user: User = Depends(get_current_employee),
+    db: Session = Depends(get_db)
+):
+    if req.password and req.password != req.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    user.username = req.username
+            
+    if req.password:
+        user.password_hash = get_password_hash(req.password)
+    db.commit()
+    
+    request.session.clear()
+    return {"message": "Credentials updated successfully. Please log in again."}

@@ -110,10 +110,11 @@
         <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
         <nav class="sidebar-nav">
             <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
-            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
             <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
             <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
             <a href="/employee/profile" class="active"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -130,6 +131,8 @@
             <div class="topbar-title"><i class="fa-solid fa-user-circle" style="color:var(--accent-primary)"></i> My Profile</div>
         </header>
         <div class="page-content fade-in">
+            <div id="profile-loading" style="display:none; text-align:center; padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading profile...</div>
+            <div id="profile-error" style="display:none; padding:1rem; border-radius:8px; background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.2); color:#b91c1c; margin-bottom:1rem;"></div>
 
             <!-- Profile Hero -->
             <div class="profile-hero" id="profile-hero">
@@ -176,6 +179,11 @@
                             <div class="field-label">Employee Code</div>
                             <div class="field-value" id="f-code">—</div>
                         </div>
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
+                            <div class="field-label">Username</div>
+                            <input id="f-username" class="form-control" style="margin-top:0.25rem;" placeholder="Enter username">
+                        </div>
                         <div class="field-item">
                             <div class="field-label">Email Address</div>
                             <div class="field-value" id="f-email">—</div>
@@ -207,7 +215,7 @@
 
                     <div style="margin-top:1.25rem;">
                         <button class="btn btn-primary" onclick="saveProfile()"><i class="fa-solid fa-save"></i> Save Changes</button>
-                        <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:1rem;">Only Mobile Number and Address can be updated.</span>
+                        <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:1rem;">Username, Mobile Number and Address can be updated.</span>
                     </div>
                 </div>
             </div>
@@ -221,9 +229,10 @@
                             <div class="field-label">Department</div>
                             <div class="field-value" id="f-dept">—</div>
                         </div>
-                        <div class="field-item">
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
                             <div class="field-label">Designation</div>
-                            <div class="field-value" id="f-desig">—</div>
+                            <input id="f-desig" class="form-control" style="margin-top:0.25rem;" placeholder="Enter designation">
                         </div>
                         <div class="field-item">
                             <div class="field-label">Date of Joining</div>
@@ -233,9 +242,10 @@
                             <div class="field-label">Employment Type</div>
                             <div class="field-value" id="f-salary-type">—</div>
                         </div>
-                        <div class="field-item">
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
                             <div class="field-label">Experience</div>
-                            <div class="field-value" id="f-exp">—</div>
+                            <input id="f-exp" class="form-control" style="margin-top:0.25rem;" placeholder="Enter experience">
                         </div>
                         <div class="field-item">
                             <div class="field-label">Highest Qualification</div>
@@ -245,24 +255,27 @@
                             <div class="field-label">Institution</div>
                             <div class="field-value" id="f-inst">—</div>
                         </div>
-                        <div class="field-item">
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
                             <div class="field-label">Camera Skill Level</div>
-                            <div class="field-value" id="f-camera">—</div>
+                            <input id="f-camera" class="form-control" style="margin-top:0.25rem;" placeholder="Enter camera skill level">
                         </div>
                     </div>
                     <div class="field-grid" style="margin-top:1rem;">
-                        <div class="field-item">
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
                             <div class="field-label">Skills</div>
-                            <div class="field-value" id="f-skills">—</div>
+                            <textarea id="f-skills" class="form-control" rows="2" style="margin-top:0.25rem;" placeholder="Enter skills separated by commas"></textarea>
                         </div>
-                        <div class="field-item">
+                        <div class="field-item field-editable">
+                            <div class="editable-tag"><i class="fa-solid fa-pen-to-square"></i> Editable</div>
                             <div class="field-label">Software Knowledge</div>
-                            <div class="field-value" id="f-software">—</div>
+                            <textarea id="f-software" class="form-control" rows="2" style="margin-top:0.25rem;" placeholder="Enter software knowledge separated by commas"></textarea>
                         </div>
                     </div>
                     <div style="margin-top:1rem; padding:0.9rem 1.1rem; border-radius:10px; background:rgba(79,70,229,0.04); border:1px solid rgba(79,70,229,0.1); font-size:0.85rem; color:var(--text-secondary);">
                         <i class="fa-solid fa-circle-info" style="color:var(--accent-primary)"></i>
-                        Employment details are managed by the Administrator. Contact HR to update these fields.
+                        Your editable employment-related details are shown above. Changes will be saved when you update your profile.
                     </div>
                 </div>
             </div>
@@ -299,91 +312,197 @@
         }
 
         async function loadProfile() {
-            const res = await fetch('/api/employee/profile');
-            if (!res.ok) return;
-            profileData = await res.json();
-            const p = profileData;
+            let p = null;
+            try {
+                let res = await fetch('/api/employee/profile');
+                if (res.ok) {
+                    p = await res.json();
+                } else {
+                    console.warn('/api/employee/profile failed, falling back to /api/employee/data', res.status);
+                    res = await fetch('/api/employee/data');
+                    if (res.ok) {
+                        const data = await res.json();
+                        p = data.employee || null;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load employee profile', err);
+            }
+
+            if (!p) {
+                document.getElementById('profile-loading').style.display = 'none';
+                const errorEl = document.getElementById('profile-error');
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Unable to load profile details. Please refresh or contact admin.';
+                return;
+            }
+            profileData = p;
 
             // Sidebar
-            document.getElementById('sb-name').textContent = p.employee_name || '—';
+            try {
+                const sbName = document.getElementById('sb-name');
+                if (sbName) sbName.textContent = p.employee_name || '—';
+            } catch (e) {
+                console.error('Error setting sidebar name:', e);
+            }
+            
             const initials = p.employee_name ? p.employee_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
 
             // Avatar
-            const sbAv = document.getElementById('sb-avatar');
-            const heroAv = document.getElementById('avatar-btn');
-            if (p.photo_path) {
-                sbAv.innerHTML = `<img src="/${p.photo_path}" alt="avatar">`;
-                heroAv.innerHTML = `<img src="/${p.photo_path}" alt="photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
-            } else {
-                sbAv.textContent = initials;
-                heroAv.innerHTML = `<span>${initials}</span><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+            try {
+                const sbAv = document.getElementById('sb-avatar');
+                const heroAv = document.getElementById('avatar-btn');
+                if (p.photo_path) {
+                    if (sbAv) sbAv.innerHTML = `<img src="/${p.photo_path}" alt="avatar">`;
+                    if (heroAv) heroAv.innerHTML = `<img src="/${p.photo_path}" alt="photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+                } else {
+                    if (sbAv) sbAv.textContent = initials;
+                    if (heroAv) heroAv.innerHTML = `<span>${initials}</span><div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>`;
+                }
+                if (heroAv) heroAv.onclick = () => document.getElementById('photo-input').click();
+            } catch (e) {
+                console.error('Error setting avatar:', e);
             }
-            heroAv.onclick = () => document.getElementById('photo-input').click();
 
-            // Hero
-            document.getElementById('hero-name').textContent = p.employee_name || '—';
-            document.getElementById('hero-desig').textContent = p.designation || '—';
-            document.getElementById('hero-code').textContent = p.employee_code || '—';
-            document.getElementById('hero-dept').textContent = p.department || '—';
-            document.getElementById('hero-email').textContent = p.email || '—';
-            document.getElementById('hero-initials').textContent = initials;
+            // Hero section
+            try {
+                const heroName = document.getElementById('hero-name');
+                if (heroName) heroName.textContent = p.employee_name || '—';
+                const heroDesig = document.getElementById('hero-desig');
+                if (heroDesig) heroDesig.textContent = p.designation || '—';
+                const heroCode = document.getElementById('hero-code');
+                if (heroCode) heroCode.textContent = p.employee_code || '—';
+                const heroDept = document.getElementById('hero-dept');
+                if (heroDept) heroDept.textContent = p.department || '—';
+                const heroEmail = document.getElementById('hero-email');
+                if (heroEmail) heroEmail.textContent = p.email || '—';
+                const heroInitials = document.getElementById('hero-initials');
+                if (heroInitials) heroInitials.textContent = initials;
+            } catch (e) {
+                console.error('Error populating hero section:', e);
+            }
 
             // Personal tab (read-only)
             const v = (val) => val || '<span class="empty">Not provided</span>';
-            document.getElementById('f-name').innerHTML = v(p.employee_name);
-            document.getElementById('f-code').innerHTML = v(p.employee_code);
-            document.getElementById('f-email').innerHTML = v(p.email);
-            document.getElementById('f-dob').innerHTML = v(p.dob);
-            document.getElementById('f-gender').innerHTML = v(p.gender);
-            document.getElementById('f-emergency').innerHTML = v(p.emergency_contact);
+            const formatDate = (value) => {
+                if (!value) return null;
+                const parsed = new Date(value);
+                return isNaN(parsed) ? value : parsed.toLocaleDateString();
+            };
+            const formatList = (value) => {
+                if (!value) return null;
+                return value.split(',').map(item => item.trim()).filter(Boolean).join(', ');
+            };
 
-            // Editable
-            document.getElementById('f-mobile').value = p.mobile_number || '';
-            document.getElementById('f-address').value = p.address || '';
+            // Set Personal Details fields with error handling
+            try {
+                const fName = document.getElementById('f-name');
+                if (fName) fName.innerHTML = v(p.employee_name);
+                const fCode = document.getElementById('f-code');
+                if (fCode) fCode.innerHTML = v(p.employee_code);
+                const fUsername = document.getElementById('f-username');
+                if (fUsername) fUsername.value = p.username || '';
+                const fEmail = document.getElementById('f-email');
+                if (fEmail) fEmail.innerHTML = v(p.email);
+                const fDob = document.getElementById('f-dob');
+                if (fDob) fDob.innerHTML = v(formatDate(p.dob));
+                const fGender = document.getElementById('f-gender');
+                if (fGender) fGender.innerHTML = v(p.gender);
+                const fEmergency = document.getElementById('f-emergency');
+                if (fEmergency) fEmergency.innerHTML = v(p.emergency_contact);
 
-            // Employment tab
-            document.getElementById('f-dept').innerHTML = v(p.department);
-            document.getElementById('f-desig').innerHTML = v(p.designation);
-            document.getElementById('f-doj').innerHTML = v(p.date_of_joining);
-            document.getElementById('f-salary-type').innerHTML = v(p.salary_type);
-            document.getElementById('f-exp').innerHTML = v(p.experience);
-            document.getElementById('f-qual').innerHTML = v(p.highest_qualification);
-            document.getElementById('f-inst').innerHTML = v(p.institution_name);
-            document.getElementById('f-camera').innerHTML = v(p.camera_skill_level);
-            document.getElementById('f-skills').innerHTML = v(p.skills);
-            document.getElementById('f-software').innerHTML = v(p.software_knowledge);
+                // Editable fields
+                const fMobile = document.getElementById('f-mobile');
+                if (fMobile) fMobile.value = p.mobile_number || '';
+                const fAddress = document.getElementById('f-address');
+                if (fAddress) fAddress.value = p.address || '';
+            } catch (e) {
+                console.error('Error populating personal details:', e);
+            }
+
+            // Set Employment Details fields with error handling
+            try {
+                const fDept = document.getElementById('f-dept');
+                if (fDept) fDept.innerHTML = v(formatList(p.department));
+                const fDesig = document.getElementById('f-desig');
+                if (fDesig) fDesig.value = p.designation || '';
+                const fDoj = document.getElementById('f-doj');
+                if (fDoj) fDoj.innerHTML = v(formatDate(p.date_of_joining));
+                const fSalaryType = document.getElementById('f-salary-type');
+                if (fSalaryType) fSalaryType.innerHTML = v(p.salary_type);
+                const fExp = document.getElementById('f-exp');
+                if (fExp) fExp.value = p.experience || '';
+                const fQual = document.getElementById('f-qual');
+                if (fQual) fQual.innerHTML = v(p.highest_qualification);
+                const fInst = document.getElementById('f-inst');
+                if (fInst) fInst.innerHTML = v(p.institution_name);
+                const fCamera = document.getElementById('f-camera');
+                if (fCamera) fCamera.value = p.camera_skill_level || '';
+                const fSkills = document.getElementById('f-skills');
+                if (fSkills) fSkills.value = p.skills || '';
+                const fSoftware = document.getElementById('f-software');
+                if (fSoftware) fSoftware.value = p.software_knowledge || '';
+            } catch (e) {
+                console.error('Error populating employment details:', e);
+            }
 
             // Documents tab
-            const docs = [
-                { name:'Resume / CV', key:'resume_path', icon:'fa-file-pdf' },
-                { name:'Profile Photo', key:'photo_path', icon:'fa-image' },
-                { name:'Aadhaar Card (Front)', key:'aadhaar_front_path', icon:'fa-id-card' },
-                { name:'Aadhaar Card (Back)', key:'aadhaar_back_path', icon:'fa-id-card' },
-                { name:'Certificates', key:'certificates_path', icon:'fa-certificate' },
-            ];
-            document.getElementById('doc-list').innerHTML = docs.map(d => {
-                const path = p[d.key];
-                const available = !!path;
-                return `<div class="doc-card">
-                    <div class="doc-icon"><i class="fa-solid ${d.icon}"></i></div>
-                    <div class="doc-info">
-                        <div class="doc-name">${d.name}</div>
-                        <div class="doc-sub">${available ? path.split('/').pop() : 'Not uploaded'}</div>
-                    </div>
-                    <span class="badge ${available?'doc-badge-available':'doc-badge-missing'}">
-                        ${available ? '<i class="fa-solid fa-check"></i> Available' : '<i class="fa-solid fa-xmark"></i> Missing'}
-                    </span>
-                    ${available ? `<a href="/${path}" target="_blank" class="btn btn-outline btn-sm"><i class="fa-solid fa-download"></i> View</a>` : ''}
-                </div>`;
-            }).join('');
+            try {
+                const docs = [
+                    { name:'Resume / CV', key:'resume_path', icon:'fa-file-pdf' },
+                    { name:'Profile Photo', key:'photo_path', icon:'fa-image' },
+                    { name:'Aadhaar Card (Front)', key:'aadhaar_front_path', icon:'fa-id-card' },
+                    { name:'Aadhaar Card (Back)', key:'aadhaar_back_path', icon:'fa-id-card' },
+                    { name:'Certificates', key:'certificates_path', icon:'fa-certificate' },
+                ];
+                const docList = document.getElementById('doc-list');
+                if (docList) {
+                    docList.innerHTML = docs.map(d => {
+                        const path = p[d.key];
+                        const available = !!path;
+                        return `<div class="doc-card">
+                            <div class="doc-icon"><i class="fa-solid ${d.icon}"></i></div>
+                            <div class="doc-info">
+                                <div class="doc-name">${d.name}</div>
+                                <div class="doc-sub">${available ? path.split('/').pop() : 'Not uploaded'}</div>
+                            </div>
+                            <span class="badge ${available?'doc-badge-available':'doc-badge-missing'}">
+                                ${available ? '<i class="fa-solid fa-check"></i> Available' : '<i class="fa-solid fa-xmark"></i> Missing'}
+                            </span>
+                            ${available ? `<a href="/${path}" target="_blank" class="btn btn-outline btn-sm"><i class="fa-solid fa-download"></i> View</a>` : ''}
+                        </div>`;
+                    }).join('');
+                }
+            } catch (e) {
+                console.error('Error populating documents:', e);
+            }
+
+            // Hide loading indicator
+            const loadingEl = document.getElementById('profile-loading');
+            if (loadingEl) loadingEl.style.display = 'none';
         }
 
         async function saveProfile() {
+            const username = document.getElementById('f-username').value.trim();
             const mobile = document.getElementById('f-mobile').value.trim();
             const address = document.getElementById('f-address').value.trim();
+            const designation = document.getElementById('f-desig').value.trim();
+            const experience = document.getElementById('f-exp').value.trim();
+            const camera_skill_level = document.getElementById('f-camera').value.trim();
+            const skills = document.getElementById('f-skills').value.trim();
+            const software_knowledge = document.getElementById('f-software').value.trim();
             const res = await fetch('/api/employee/profile/update', {
                 method:'PUT', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ mobile_number: mobile, address })
+                body: JSON.stringify({
+                    username,
+                    mobile_number: mobile,
+                    address,
+                    designation,
+                    experience,
+                    camera_skill_level,
+                    skills,
+                    software_knowledge
+                })
             });
             const data = await res.json();
             const alert = document.getElementById('save-alert');

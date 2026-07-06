@@ -22,7 +22,13 @@ class LoginRequest(BaseModel):
 async def get_me(user: User = Depends(get_current_user)):
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return {"id": user.id, "username": user.username, "employee_name": user.employee_name, "role": user.role}
+    return {
+        "id": user.id,
+        "username": user.username,
+        "employee_name": user.employee_name,
+        "role": user.role,
+        "photo_path": user.photo_path,
+    }
 
 @router.get("/check-email")
 async def check_email(email: str, db: Session = Depends(get_db)):
@@ -46,8 +52,8 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
     
     # Check if email already has password set (already registered)
     if user.password_hash and user.password_hash.strip() != "":
-        raise HTTPException(status_code=404, detail="Email is not registered by the Admin")
-    
+        raise HTTPException(status_code=400, detail="Email has already been registered by the user")
+
     # Check if username already exists on another account
     existing_username = db.query(User).filter(User.username == req.username).first()
     if existing_username and existing_username.id != user.id:

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Settings | Blink Once EPS</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/js/theme.js"></script>
+    <style>
+        body { display:flex; flex-direction:row; min-height:100vh; overflow-x:hidden; }
+        body::before { display:none; }
+        .sidebar { width:240px; min-height:100vh; flex-shrink:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); border-right:1px solid var(--border-color); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; z-index:50; }
+        .dark-theme .sidebar { background:rgba(15,23,42,0.92); }
+        .sidebar-brand { padding:1.5rem 1.25rem 1rem; font-size:1.25rem; font-weight:700; letter-spacing:-0.5px; border-bottom:1px solid var(--border-color); }
+        .sidebar-brand small { display:block; font-size:0.7rem; font-weight:500; color:var(--text-secondary); letter-spacing:1px; text-transform:uppercase; margin-top:0.15rem; }
+        .sidebar-nav { padding:1rem 0.75rem; flex:1; }
+        .sidebar-nav a { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 0.85rem; border-radius:10px; font-size:0.9rem; font-weight:500; color:var(--text-secondary); text-decoration:none; margin-bottom:0.25rem; transition:all 0.2s; }
+        .sidebar-nav a:hover { background:rgba(79,70,229,0.08); color:var(--accent-primary); }
+        .sidebar-nav a.active { background:rgba(79,70,229,0.12); color:var(--accent-primary); font-weight:600; box-shadow:inset 3px 0 0 var(--accent-primary); }
+        .sidebar-nav a i { width:18px; text-align:center; }
+        .sidebar-footer { padding:1rem 0.75rem; border-top:1px solid var(--border-color); }
+        .sidebar-user { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.5rem; margin-bottom:0.5rem; }
+        .sidebar-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent-gradient); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:0.85rem; flex-shrink:0; overflow:hidden; }
+        .sidebar-avatar img { width:100%; height:100%; object-fit:cover; }
+        .sidebar-user-name { font-size:0.85rem; font-weight:600; }
+        .sidebar-user-role { font-size:0.7rem; color:var(--text-secondary); }
+        .page-wrapper { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:0.9rem 2rem; background:rgba(255,255,255,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border-color); position:sticky; top:0; z-index:40; }
+        .dark-theme .topbar { background:rgba(17,24,39,0.85); }
+        .topbar-title { font-size:1.1rem; font-weight:600; display:flex; align-items:center; gap:0.5rem; }
+        .page-content { flex:1; padding:1.75rem 2rem 2rem; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="gradient-text"><i class="fa-solid fa-bolt"></i> Blink Once</span><small>Employee Portal</small></div>
+        <nav class="sidebar-nav">
+            <a href="/employee/dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
+            <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
+            <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
+            <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings" class="active"><i class="fa-solid fa-gear"></i> Settings</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sb-avatar">?</div>
+                <div><div class="sidebar-user-name" id="sb-name">…</div><div class="sidebar-user-role">Employee</div></div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="width:100%;margin-bottom:0.4rem;" onclick="toggleTheme()"><i class="fa-solid fa-moon"></i> Toggle Theme</button>
+            <button class="btn btn-outline btn-sm" style="width:100%;color:var(--danger);border-color:rgba(220,38,38,0.2);" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+        </div>
+    </aside>
+
+    <div class="page-wrapper">
+        <header class="topbar">
+            <div class="topbar-title"><i class="fa-solid fa-gear" style="color:var(--accent-primary)"></i> Settings</div>
+        </header>
+        <div class="page-content fade-in">
+            <div class="flex-between mb-4">
+                <h2><i class="fa-solid fa-gear"></i> Employee Settings</h2>
+            </div>
+
+            <div class="glass-panel" style="max-width: 600px; margin: 0 auto; padding: 2rem;">
+                <h3 class="mb-3">Update Credentials</h3>
+                <p class="text-secondary mb-4">Change your employee username and password here. You will be required to log in again after updating.</p>
+
+                <div id="msg" class="alert" style="display: none;"></div>
+
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="username" name="username" class="form-control" required>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" name="password" id="password" class="form-control" placeholder="Leave blank to keep current password">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm Password</label>
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Confirm new password">
+                        </div>
+                    </div>
+
+                    <div class="alert mt-4" style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Changing credentials will log you out immediately.
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const meRes = await fetch('/api/auth/me');
+                if (!meRes.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                const user = await meRes.json();
+                if (user.role !== 'Employee') {
+                    window.location.href = '/admin/dashboard';
+                    return;
+                }
+                document.getElementById('sb-name').textContent = user.employee_name || 'Employee';
+                const initials = (user.employee_name || 'Employee').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
+                const sbAvatar = document.getElementById('sb-avatar');
+                if (user.photo_path) {
+                    sbAvatar.innerHTML = `<img src="/${user.photo_path.replace(/^\/+/, '')}" alt="avatar">`;
+                } else {
+                    sbAvatar.textContent = initials;
+                }
+                document.getElementById('username').value = user.username || '';
+            } catch (err) {
+                window.location.href = '/login';
+            }
+        });
+
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const msgBox = document.getElementById('msg');
+
+            if (data.password && data.password !== data.confirm_password) {
+                msgBox.style.display = 'block';
+                msgBox.className = 'alert alert-danger';
+                msgBox.textContent = 'Passwords do not match.';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/employee/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    const errorData = await response.json();
+                    msgBox.style.display = 'block';
+                    msgBox.className = 'alert alert-danger';
+                    msgBox.textContent = errorData.detail || 'Failed to update credentials.';
+                }
+            } catch (err) {
+                msgBox.style.display = 'block';
+                msgBox.className = 'alert alert-danger';
+                msgBox.textContent = 'Something went wrong. Please try again.';
+            }
+        });
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

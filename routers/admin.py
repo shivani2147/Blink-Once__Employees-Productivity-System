@@ -14,31 +14,129 @@ import shutil, os, io, csv
 import datetime
 import random
 import string
+from calendar import monthrange
 
 router = APIRouter()
 
+
+def _build_admin_trend_series(employees, all_trend_tasks, all_trend_att, today, year=None, month=None, day=None):
+    """Build performance trend data for the admin performance chart.
+
+    When a month filter is selected, return a day-by-day series for that month.
+    Otherwise, fall back to a 6-month trend view.
+    """
+    if month is not None:
+        target_year = year or today.year
+        target_month = month
+        last_day = monthrange(target_year, target_month)[1]
+        labels = [str(i) for i in range(1, last_day + 1)]
+        datasets = []
+        palette = [
+            "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+            "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16"
+        ]
+
+        for idx, emp in enumerate(employees):
+            emp_data = []
+            for day_number in range(1, last_day + 1):
+                day_date = datetime.date(target_year, target_month, day_number)
+                day_tasks = [t for t in all_trend_tasks if t.user_id == emp.id and getattr(t, "date", None) == day_date]
+                day_att = [a for a in all_trend_att if a.user_id == emp.id and getattr(a, "date", None) == day_date]
+
+                total_tasks = len(day_tasks)
+                done = len([t for t in day_tasks if getattr(t, "status", "") in ("Done", "Completed")])
+                pending = len([t for t in day_tasks if getattr(t, "status", "") not in ("Done", "Completed")])
+                overdue = len([
+                    t for t in day_tasks
+                    if getattr(t, "deadline_date", None) and getattr(t, "deadline_date", None) <= day_date and getattr(t, "status", "") not in ("Done", "Completed")
+                ])
+                client_changes = len([t for t in day_tasks if getattr(t, "status", "") == "Client Changes"])
+                present = len([a for a in day_att if getattr(a, "status", "") in ("Present", "Late", "Half Day")])
+
+                if total_tasks > 0:
+                    comp_pct = (done / total_tasks * 100)
+                    pending_pct = (pending / total_tasks * 100)
+                    overdue_pct = (overdue / total_tasks * 100)
+                    client_changes_pct = (client_changes / total_tasks * 100)
+                else:
+                    comp_pct = 0.0
+                    pending_pct = 100.0
+                    overdue_pct = 0.0
+                    client_changes_pct = 0.0
+
+                if day_att:
+                    att_pct = (present / len(day_att) * 100)
+                    score = (
+                        att_pct * 0.25
+                        + comp_pct * 0.25
+                        + (100 - pending_pct) * 0.15
+                        + (100 - overdue_pct) * 0.20
+                        + (100 - client_changes_pct) * 0.15
+                    )
+                else:
+                    score = 0.0
+                emp_data.append(round(score, 1))
+
+            datasets.append({
+                "emp_id": emp.id,
+                "name": emp.employee_name,
+                "data": emp_data,
+                "color": palette[idx % len(palette)]
+            })
+
+        return {
+            "labels": labels,
+            "datasets": datasets,
+            "mode": "month",
+            "period_label": f"{target_year}-{target_month:02d}"
+        }
+
+    trend_labels = []
+    trend_month_ranges = []
+    for i in range(5, -1, -1):
+        m_date = today.replace(day=1) - datetime.timedelta(days=i * 28)
+        m_start = m_date.replace(day=1)
+        if m_date.month == 12:
+            m_end = m_date.replace(day=31)
+        else:
+            m_end = (m_date.replace(month=m_date.month + 1, day=1) - datetime.timedelta(days=1))
+        trend_labels.append(m_date.strftime("%b %Y"))
+        trend_month_ranges.append((m_start, m_end))
+
+    datasets = []
+    palette = [
+        "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+        "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16"
+    ]
+    for idx, emp in enumerate(employees):
+        emp_trend_data = []
+        for (m_start, m_end) in trend_month_ranges:
+            m_tasks = [t for t in all_trend_tasks if t.user_id == emp.id and t.date and m_start <= t.date <= m_end]
+            m_done = len([t for t in m_tasks if t.status in ("Done", "Completed")])
+            m_att = [a for a in all_trend_att if a.user_id == emp.id and m_start <= a.date <= m_end]
+            m_present = len([a for a in m_att if a.status in ("Present", "Late", "Half Day")])
+            m_att_pct = (m_present / len(m_att) * 100) if m_att else 100
+            m_comp_pct = (m_done / len(m_tasks) * 100) if m_tasks else 100
+            m_score = round(m_comp_pct * 0.6 + m_att_pct * 0.4, 1)
+            emp_trend_data.append(m_score)
+        datasets.append({
+            "emp_id": emp.id,
+            "name": emp.employee_name,
+            "data": emp_trend_data,
+            "color": palette[idx % len(palette)]
+        })
+
+    return {
+        "labels": trend_labels,
+        "datasets": datasets,
+        "mode": "months",
+        "period_label": "Last 6 Months"
+    }
+
 class AdminSettingsUpdate(BaseModel):
     username: str
-    email: Optional[str] = None
-    verification_code: Optional[str] = None
     password: Optional[str] = None
     confirm_password: Optional[str] = None
-
-verification_codes = {}
-
-class SendCodeRequest(BaseModel):
-    email: str
-
-@router.post("/send-verification-code")
-async def send_verification_code(req: SendCodeRequest, user: User = Depends(get_current_admin)):
-    code = ''.join(random.choices(string.digits, k=6))
-    verification_codes[req.email] = code
-    print(f"\n--- MOCK EMAIL ---")
-    print(f"To: {req.email}")
-    print(f"Subject: Your Verification Code")
-    print(f"Body: Your verification code is: {code}")
-    print(f"------------------\n")
-    return {"message": "Verification code sent to email (mocked in console)"}
 
 @router.get("/data")
 async def get_admin_dashboard_data(
@@ -70,7 +168,7 @@ async def get_admin_dashboard_data(
         records = [r for r in records if r.date and r.date.month == month]
     if day is not None:
         records = [r for r in records if r.date and r.date.day == day]
-    employees = db.query(User).filter(User.role == "Employee").all()
+    employees = db.query(User).filter(User.role != "Admin").all()
     
     total_employees = len(employees)
     total_projects = len(records)
@@ -111,24 +209,24 @@ async def get_admin_dashboard_data(
 
         record_list.append({
             "id": r.id,
-            "employee_name": r.employee_name,
-            "designation": r.designation,
-            "date": r.date.isoformat(),
-            "client_name": r.client_name,
-            "project_name": r.project_name,
+            "employee_name": r.employee_name or 'Unknown',
+            "designation": r.designation or '',
+            "date": r.date.isoformat() if r.date else None,
+            "client_name": r.client_name or '',
+            "project_name": r.project_name or '',
             "start_date": r.start_date.isoformat() if r.start_date else None,
             "end_date": r.end_date.isoformat() if r.end_date else None,
             "deadline_date": r.deadline_date.isoformat() if r.deadline_date else None,
-            "video_duration": r.video_duration,
-            "status": r.status,
-            "cameras_used": r.cameras_used,
+            "video_duration": float(r.video_duration) if r.video_duration is not None else None,
+            "status": r.status or 'Unknown',
+            "cameras_used": r.cameras_used or 0,
             "expected_workload_hours": expected_workload_hours,
-            "shoot_type": r.shoot_type,
-            "uploaded_to_drive": r.uploaded_to_drive,
-            "harddisk_number": r.harddisk_number,
-            "harddisk_directory": r.harddisk_directory,
-            "drive_link": r.drive_link,
-            "comments": r.comments,
+            "shoot_type": r.shoot_type or '',
+            "uploaded_to_drive": bool(r.uploaded_to_drive),
+            "harddisk_number": r.harddisk_number or '',
+            "pc_number": r.pc_number or '',
+            "harddisk_directory": r.harddisk_directory or '',
+            "drive_link": r.drive_link or '',
             "estimated_completion_time": estimated_completion_time
         })
             
@@ -151,11 +249,26 @@ async def get_admin_dashboard_data(
 
 
 @router.get("/notifications")
-async def get_admin_notifications(user: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    """Generate and return admin notifications; persist them so read/unread can be tracked."""
+async def get_admin_notifications(
+    employee_filter: str = "",
+    client_filter: str = "",
+    project_filter: str = "",
+    status_filter: str = "",
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    day: Optional[int] = None,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Generate and return admin notifications; persist them so read/unread can be tracked.
+    Accepts the same filters used on the dashboard to narrow notifications.
+    """
     today = datetime.date.today()
     week_ago = today - datetime.timedelta(days=7)
     now = datetime.datetime.utcnow()
+
+    # Keep track of created Notification objects in this request
+    _generated_notifications = []
 
     def _exists(meta_key, ref_id):
         like_str = f'%"{meta_key}": "{ref_id}"%'
@@ -173,6 +286,7 @@ async def get_admin_notifications(user: User = Depends(get_current_admin), db: S
             created_at=created_at or datetime.datetime.utcnow()
         )
         db.add(n)
+        _generated_notifications.append(n)
 
     # 1) Leave requests
     lrs = db.query(LeaveRequest).filter(or_(LeaveRequest.start_date >= week_ago, LeaveRequest.start_date == today)).all()
@@ -212,11 +326,22 @@ async def get_admin_notifications(user: User = Depends(get_current_admin), db: S
             msg = f"{t.employee_name}'s task \"{t.project_name}\" is due today."
             priority = "High"
             _create_if_missing('task', msg, priority, {'ref_id': f'deadline_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name})
-        elif t.status == 'Done' and t.updated_at and t.updated_at.date() >= week_ago:
-            title = "Task Completed"
-            msg = f"{t.employee_name} completed \"{t.project_name}\" successfully."
-            priority = "Low"
-            _create_if_missing('task', msg, priority, {'ref_id': f'completed_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name}, created_at=t.updated_at)
+        elif t.status == 'Done':
+            # ProductivityRecord does not have an `updated_at` field in the model.
+            # Use `end_date` (if present) to determine recent completions within the past week,
+            # otherwise treat it as recent and create the notification with current timestamp.
+            if getattr(t, 'end_date', None) and t.end_date >= week_ago:
+                title = "Task Completed"
+                msg = f"{t.employee_name} completed \"{t.project_name}\" successfully."
+                priority = "Low"
+                created_at = datetime.datetime.combine(t.end_date, datetime.time.min)
+                _create_if_missing('task', msg, priority, {'ref_id': f'completed_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name}, created_at=created_at)
+            elif not getattr(t, 'end_date', None):
+                # No end_date available; still create a low-priority completion notification
+                title = "Task Completed"
+                msg = f"{t.employee_name} completed \"{t.project_name}\" successfully."
+                priority = "Low"
+                _create_if_missing('task', msg, priority, {'ref_id': f'completed_{t.id}', 'title': title, 'employee_name': t.employee_name, 'project_name': t.project_name})
 
     # 3) Productivity record updates
     edits = db.query(ProductivityEditHistory).filter(ProductivityEditHistory.edited_at >= datetime.datetime.utcnow() - datetime.timedelta(days=7)).order_by(ProductivityEditHistory.edited_at.desc()).all()
@@ -261,14 +386,30 @@ async def get_admin_notifications(user: User = Depends(get_current_admin), db: S
     today_att = db.query(Attendance).filter(Attendance.date == today).all()
     att_by_user = {a.user_id: a for a in today_att}
     all_emps = db.query(User).filter(User.role == 'Employee').all()
-    
-    shift_start = datetime.datetime.combine(today, datetime.time(9, 0))
     now_local = datetime.datetime.now()
 
+    def get_shift_times(employee_name: str):
+        normalized = (employee_name or '').strip().lower()
+        if normalized == 'mayuri':
+            return (
+                datetime.datetime.combine(today, datetime.time(12, 30)),
+                datetime.datetime.combine(today, datetime.time(19, 0)),
+            )
+        if normalized == 'shubham mehta':
+            return (
+                datetime.datetime.combine(today, datetime.time(12, 0)),
+                datetime.datetime.combine(today, datetime.time(19, 0)),
+            )
+        return (
+            datetime.datetime.combine(today, datetime.time(10, 30)),
+            datetime.datetime.combine(today, datetime.time(19, 0)),
+        )
+
     for emp in all_emps:
+        shift_start, shift_end = get_shift_times(emp.employee_name)
         att = att_by_user.get(emp.id)
         if not att:
-            if now_local.hour >= 11:
+            if now_local >= shift_start + datetime.timedelta(minutes=30):
                 title = "Missed Punch-in"
                 msg = f"{emp.employee_name} has not punched in today."
                 _create_if_missing('attendance', msg, 'High', {'ref_id': f'nopunch_{emp.id}_{today.isoformat()}', 'title': title, 'employee_name': emp.employee_name, 'project_name': ''})
@@ -302,9 +443,44 @@ async def get_admin_notifications(user: User = Depends(get_current_admin), db: S
 
     db.commit()
 
+    # Prefer persisted notifications from DB. If DB has none (e.g. empty table),
+    # fall back to using notifications we generated during this request so the
+    # UI sees immediate results even before later background runs.
     notes = db.query(Notification).order_by(Notification.created_at.desc()).all()
+    if not notes and _generated_notifications:
+        # Generated objects should now have IDs after commit; use them directly
+        notes = _generated_notifications
     out = []
     for n in notes:
+        try:
+            meta = _json.loads(n.meta_data or "{}")
+        except Exception:
+            meta = {}
+
+        # Apply simple filtering based on provided dashboard filters
+        if employee_filter:
+            en = (meta.get('employee_name') or '') or ''
+            if employee_filter.lower() not in en.lower() and employee_filter.lower() not in n.message.lower():
+                continue
+        if project_filter:
+            pn = (meta.get('project_name') or '') or ''
+            if project_filter.lower() not in pn.lower() and project_filter.lower() not in n.message.lower():
+                continue
+        if status_filter:
+            # Check priority/title/message for status keywords
+            if status_filter.lower() not in (n.priority or '').lower() and status_filter.lower() not in (meta.get('title') or '').lower() and status_filter.lower() not in n.message.lower():
+                continue
+        if year is not None or month is not None or day is not None:
+            ca = n.created_at
+            if not ca:
+                continue
+            if year is not None and ca.year != year:
+                continue
+            if month is not None and ca.month != month:
+                continue
+            if day is not None and ca.day != day:
+                continue
+
         out.append({
             'id': n.id,
             'message': n.message,
@@ -339,13 +515,6 @@ async def update_admin_settings(
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
     user.username = req.username
-    
-    if req.email:
-        if req.verification_code != verification_codes.get(req.email):
-            raise HTTPException(status_code=400, detail="Invalid or expired verification code")
-        user.email = req.email
-        if req.email in verification_codes:
-            del verification_codes[req.email]
             
     if req.password:
         user.password_hash = get_password_hash(req.password)
@@ -360,6 +529,7 @@ async def add_employee(
     request: Request,
     user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
+    role: str = Form(...),
     full_name: str = Form(...),
     email: str = Form(...),
     mobile_number: str = Form(...),
@@ -443,7 +613,7 @@ async def add_employee(
         email=email,
         username=f'pending_{employee_code}',
         password_hash='',
-        role='Employee',
+        role=role,
         mobile_number=mobile_number,
         dob=dob,
         gender=gender,
@@ -474,13 +644,116 @@ async def add_employee(
     return {"message": "Employee created", "employee_code": employee_code}
 
 
+@router.put("/edit-employee/{employee_id}")
+async def edit_employee(
+    employee_id: int,
+    request: Request,
+    user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    full_name: str = Form(...),
+    email: str = Form(...),
+    mobile_number: str = Form(...),
+    dob: str = Form(...),
+    gender: str = Form(...),
+    address: str = Form(...),
+    emergency_contact: Optional[str] = Form(None),
+    highest_qualification: Optional[str] = Form(None),
+    institution_name: Optional[str] = Form(None),
+    date_of_joining: Optional[str] = Form(None),
+    department: Optional[List[str]] = Form(None),
+    designation: Optional[List[str]] = Form(None),
+    salary_type: Optional[str] = Form(None),
+    salary_amount: Optional[float] = Form(None),
+    experience: Optional[str] = Form(None),
+    skills: Optional[str] = Form(None),
+    software_knowledge: Optional[str] = Form(None),
+    camera_skill_level: Optional[str] = Form(None),
+    editing_type: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    resume: Optional[UploadFile] = File(None),
+    aadhaar_front: Optional[UploadFile] = File(None),
+    aadhaar_back: Optional[UploadFile] = File(None),
+    certificates: Optional[UploadFile] = File(None),
+):
+    emp = db.query(User).filter(User.id == employee_id, User.role != "Admin").first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    if emp.email != email:
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            return JSONResponse(
+                status_code=400,
+                content={"message": f"Email '{email}' is already registered to another employee. Please use a different email."}
+            )
+
+    base_folder = os.path.join('static', 'Employee_Details')
+    def sanitize_name(name: str) -> str:
+        if not name:
+            return 'unknown'
+        cleaned = ''.join(c for c in name if c.isalnum() or c in (' ', '-', '_')).strip()
+        return cleaned.replace(' ', '_') or 'employee'
+
+    emp_folder_name = f"{sanitize_name(full_name)}_{emp.employee_code}"
+    emp_folder = os.path.join(base_folder, emp_folder_name)
+    os.makedirs(emp_folder, exist_ok=True)
+
+    def save_file(file: UploadFile, folder: str, custom_name: str):
+        if not file or not getattr(file, "filename", None):
+            return None
+        file_ext = os.path.splitext(file.filename)[1]
+        filename = f"{custom_name}{file_ext}"
+        path = os.path.join(folder, filename)
+        with open(path, 'wb') as f:
+            shutil.copyfileobj(file.file, f)
+        return path.replace('\\', '/')
+
+    photo_path = save_file(photo, emp_folder, 'passport_photo') or emp.photo_path
+    resume_path = save_file(resume, emp_folder, 'resume') or emp.resume_path
+    aadhaar_front_path = save_file(aadhaar_front, emp_folder, 'front_aadhar_card') or emp.aadhaar_front_path
+    aadhaar_back_path = save_file(aadhaar_back, emp_folder, 'back_aadhar_card') or emp.aadhaar_back_path
+    certificates_path = save_file(certificates, emp_folder, 'certificates') or emp.certificates_path
+
+    emp.employee_name = full_name
+    emp.email = email
+    emp.mobile_number = mobile_number
+    emp.dob = dob
+    emp.gender = gender
+    emp.address = address
+    emp.emergency_contact = emergency_contact
+    emp.role = role
+    emp.photo_path = photo_path
+    emp.highest_qualification = highest_qualification
+    emp.institution_name = institution_name
+    emp.date_of_joining = date_of_joining
+    emp.department = ','.join(department) if department else None
+    emp.designation = ','.join(designation) if designation else None
+    emp.salary_type = salary_type
+    emp.salary_amount = salary_amount
+    emp.experience = experience
+    emp.skills = skills
+    emp.software_knowledge = software_knowledge
+    emp.camera_skill_level = camera_skill_level
+    emp.resume_path = resume_path
+    emp.aadhaar_front_path = aadhaar_front_path
+    emp.aadhaar_back_path = aadhaar_back_path
+    emp.certificates_path = certificates_path
+
+    db.commit()
+    return {"message": "Employee updated"}
+
+
 @router.get("/employees")
 async def get_all_employees(
     user: User = Depends(get_current_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    employee_id: Optional[int] = None
 ):
-    """Fetch all employees with full details for View Employee page."""
-    employees = db.query(User).filter(User.role == "Employee").all()
+    """Fetch all non-admin employees or optionally a single employee by ID."""
+    emp_query = db.query(User).filter(User.role != "Admin")
+    if employee_id is not None:
+        emp_query = emp_query.filter(User.id == employee_id)
+    employees = emp_query.all()
     
     result = []
     for emp in employees:
@@ -495,6 +768,7 @@ async def get_all_employees(
             "address": emp.address,
             "emergency_contact": emp.emergency_contact,
             "photo_path": emp.photo_path,
+            "role": emp.role,
             "highest_qualification": emp.highest_qualification,
             "institution_name": emp.institution_name,
             "date_of_joining": emp.date_of_joining.isoformat() if emp.date_of_joining else None,
@@ -530,7 +804,7 @@ async def get_performance_data(
     today = datetime.date.today()
     
     # Base queries
-    emp_query = db.query(User).filter(User.role == "Employee")
+    emp_query = db.query(User).filter(User.role != "Admin")
     if department:
         emp_query = emp_query.filter(User.department.ilike(f"%{department}%"))
     if designation:
@@ -589,9 +863,7 @@ async def get_performance_data(
     # On-Time Completion Rate (Overall)
     on_time_tasks = len([t for t in all_tasks if t.status == "Done" and t.deadline_date and t.end_date and t.end_date <= t.deadline_date])
     evaluable_tasks = len([t for t in all_tasks if t.status == "Done" and t.deadline_date and t.end_date])
-    overall_on_time_rate = (on_time_tasks / evaluable_tasks * 100) if evaluable_tasks > 0 else 100
-    
-    # Leave Requests
+    overall_on_time_rate = (on_time_tasks / evaluable_tasks * 100) if evaluable_tasks > 0 else 0
     pending_leaves = db.query(LeaveRequest).filter(LeaveRequest.status == "Pending", LeaveRequest.user_id.in_(emp_ids)).count()
     
     # Per-employee calculations
@@ -613,24 +885,20 @@ async def get_performance_data(
     if day is not None:
         att_records = [a for a in att_records if a.date and a.date.day == day]
     
+    total_days = (ed - sd).days + 1
     for emp in employees:
         emp_tasks = [t for t in all_tasks if t.user_id == emp.id]
         assigned = len(emp_tasks)
         completed = len([t for t in emp_tasks if t.status == "Done"])
         pending = assigned - completed
         
-        emp_eval_tasks = [t for t in emp_tasks if t.status == "Done" and t.deadline_date and t.end_date]
+        emp_eval_tasks = [t for t in emp_tasks if t.status in ("Done", "Completed") and t.deadline_date and t.end_date]
         emp_on_time = len([t for t in emp_eval_tasks if t.end_date <= t.deadline_date])
-        on_time_perc = (emp_on_time / len(emp_eval_tasks) * 100) if len(emp_eval_tasks) > 0 else 100
-        if assigned == 0:
-            on_time_perc = 100
-            
-        emp_att = [a for a in att_records if a.user_id == emp.id]
-        total_days = len(emp_att)
-        present_days = len([a for a in emp_att if a.status in ["Present", "Late"]])
-        attendance_perc = (present_days / total_days * 100) if total_days > 0 else 100
+        on_time_perc = (emp_on_time / len(emp_eval_tasks) * 100) if len(emp_eval_tasks) > 0 else 0
         
-        # Simple score calculation
+        emp_att = [a for a in att_records if a.user_id == emp.id]
+        present_days = len([a for a in emp_att if a.status in ["Present", "Late", "Half Day"]])
+        attendance_perc = (present_days / total_days * 100) if total_days > 0 else 0
         completion_perc = (completed / assigned * 100) if assigned > 0 else 100
         score = (completion_perc * 0.4) + (on_time_perc * 0.4) + (attendance_perc * 0.2)
         
@@ -643,6 +911,7 @@ async def get_performance_data(
         else:
             status = "Needs Attention"
             
+        completion_ratio = (completed / assigned) if assigned > 0 else 0
         employee_performance.append({
             "id": emp.id,
             "name": emp.employee_name,
@@ -652,13 +921,14 @@ async def get_performance_data(
             "assigned": assigned,
             "completed": completed,
             "pending": pending,
+            "completion_ratio": completion_ratio,
             "on_time_perc": round(on_time_perc, 1),
             "attendance_perc": round(attendance_perc, 1),
             "score": round(score, 1),
             "status": status
         })
         
-    employee_performance.sort(key=lambda x: x["score"], reverse=True)
+    employee_performance.sort(key=lambda x: (x["completion_ratio"], x["completed"]), reverse=True)
     
     best_performer = employee_performance[0] if employee_performance else None
     
@@ -670,10 +940,10 @@ async def get_performance_data(
     high_pending = sorted(employee_performance, key=lambda x: x["pending"], reverse=True)[:5]
     
     chart_tasks_names = [e["name"] for e in employee_performance[:10]]
-    chart_tasks_data = [e["completed"] for e in employee_performance[:10]]
+    chart_tasks_completed = [e["completed"] for e in employee_performance[:10]]
+    chart_tasks_assigned = [e["assigned"] for e in employee_performance[:10]]
 
-    # ── Performance Trend (last 6 months, per employee) ──────────────────────
-    # Fetch ALL tasks and attendance for all matching employees across last 6 months
+    # ── Performance Trend ──────────────────────
     trend_start = (today.replace(day=1) - datetime.timedelta(days=5 * 28)).replace(day=1)
     all_trend_tasks = db.query(ProductivityRecord).filter(
         ProductivityRecord.user_id.in_(emp_ids),
@@ -684,44 +954,7 @@ async def get_performance_data(
         Attendance.date >= trend_start
     ).all()
 
-    # Build 6-month labels
-    trend_month_labels = []
-    trend_month_ranges = []
-    for i in range(5, -1, -1):
-        m_date = today.replace(day=1) - datetime.timedelta(days=i * 28)
-        m_start = m_date.replace(day=1)
-        if m_date.month == 12:
-            m_end = m_date.replace(day=31)
-        else:
-            m_end = (m_date.replace(month=m_date.month + 1, day=1) - datetime.timedelta(days=1))
-        trend_month_labels.append(m_date.strftime("%b %Y"))
-        trend_month_ranges.append((m_start, m_end))
-
-    # Per-employee trend datasets
-    trend_datasets = []
-    # Palette of distinct colors for multiple employees
-    palette = [
-        "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
-        "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#84cc16"
-    ]
-    for idx, emp in enumerate(employees):
-        emp_trend_data = []
-        for (m_start, m_end) in trend_month_ranges:
-            m_tasks = [t for t in all_trend_tasks if t.user_id == emp.id and t.date and m_start <= t.date <= m_end]
-            m_done  = len([t for t in m_tasks if t.status in ("Done", "Completed")])
-            m_att   = [a for a in all_trend_att if a.user_id == emp.id and m_start <= a.date <= m_end]
-            m_present = len([a for a in m_att if a.status in ("Present", "Late", "Half Day")])
-            m_att_pct  = (m_present / len(m_att) * 100) if m_att else 100
-            m_comp_pct = (m_done / len(m_tasks) * 100) if m_tasks else 100
-            m_score = round(m_comp_pct * 0.6 + m_att_pct * 0.4, 1)
-            emp_trend_data.append(m_score)
-        color = palette[idx % len(palette)]
-        trend_datasets.append({
-            "emp_id": emp.id,
-            "name": emp.employee_name,
-            "data": emp_trend_data,
-            "color": color
-        })
+    trend = _build_admin_trend_series(employees, all_trend_tasks, all_trend_att, today, year=year, month=month, day=day)
     # ─────────────────────────────────────────────────────────────────────────
 
     return {
@@ -762,17 +995,15 @@ async def get_performance_data(
         "charts": {
             "tasks_bar": {
                 "labels": chart_tasks_names,
-                "data": chart_tasks_data
+                "completed": chart_tasks_completed,
+                "assigned": chart_tasks_assigned
             },
             "attendance_pie": {
                 "labels": ["Present", "Late", "Absent"],
                 "data": [present_today, late_today, absent_today]
             }
         },
-        "trend": {
-            "labels": trend_month_labels,
-            "datasets": trend_datasets
-        }
+        "trend": trend
     }
 
 
@@ -816,7 +1047,7 @@ async def get_all_attendance(
     today = datetime.date.today()
 
     # Pre-fetch employees to avoid N+1
-    emp_map = {u.id: u for u in db.query(User).filter(User.role == "Employee").all()}
+    emp_map = {u.id: u for u in db.query(User).filter(User.role != "Admin").all()}
 
     result = []
     for a in records:
@@ -836,13 +1067,18 @@ async def get_all_attendance(
             "missing_punchout": missing_punchout,
         })
 
-    today_str = today.isoformat()
-    today_recs = [r for r in result if r["date"] == today_str]
+    # Summary reflects the filtered result set (date range / employee / status)
+    present_count = len([r for r in result if r.get("status") == "Present"])
+    absent_count = len([r for r in result if r.get("status") == "Absent"])
+    late_count = len([r for r in result if r.get("status") == "Late"])
+    missing_count = len([r for r in result if r.get("missing_punchout")])
+
     summary = {
-        "present_today":    len([r for r in today_recs if r["status"] == "Present"]),
-        "absent_today":     len([r for r in today_recs if r["status"] == "Absent"]),
-        "late_today":       len([r for r in today_recs if r["status"] == "Late"]),
-        "missing_punchout": len([r for r in today_recs if r["missing_punchout"]]),
+        # kept keys same for front-end compatibility
+        "present_today":    present_count,
+        "absent_today":     absent_count,
+        "late_today":       late_count,
+        "missing_punchout": missing_count,
     }
     return {"records": result, "summary": summary}
 
@@ -883,7 +1119,7 @@ async def export_attendance_csv(
         query = query.filter(Attendance.date <= date_to)
 
     records = query.order_by(Attendance.date.desc()).all()
-    emp_map = {u.id: u for u in db.query(User).filter(User.role == "Employee").all()}
+    emp_map = {u.id: u for u in db.query(User).filter(User.role != "Admin").all()}
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -927,7 +1163,7 @@ async def get_wfh_requests(
     if status_filter:
         query = query.filter(LeaveRequest.status == status_filter)
     requests = query.order_by(LeaveRequest.status.asc(), LeaveRequest.start_date.desc()).all()
-    emp_map = {u.id: u for u in db.query(User).filter(User.role == "Employee").all()}
+    emp_map = {u.id: u for u in db.query(User).filter(User.role != "Admin").all()}
     result = []
     for r in requests:
         emp = emp_map.get(r.user_id)
@@ -1010,19 +1246,20 @@ class AdminTaskCreate(BaseModel):
     video_duration: float = 0.0
     status: str = "Not Started"
     harddisk_number: str = ""
+    pc_number: str = ""
     harddisk_directory: str = ""
     uploaded_to_drive: str = "No"
     drive_link: str = ""
     shoot_type: str = ""
     cameras_used: int = 1
-    comments: str = ""
 
 class AdminTaskUpdate(BaseModel):
     status: str
     priority: str
     deadline_date: Optional[datetime.date] = None
     drive_link: str = ""
-    comments: str = ""
+    pc_number: str = ""
+    uploaded_to_drive: Optional[str] = None
 
 @router.get("/tasks")
 async def get_all_tasks(
@@ -1067,7 +1304,8 @@ async def get_all_tasks(
             "cameras_used": r.cameras_used,
             "expected_workload_hours": r.expected_workload_hours or 0,
             "drive_link": r.drive_link or "",
-            "comments": r.comments or "",
+            "pc_number": r.pc_number or "",
+            "uploaded_to_drive": bool(r.uploaded_to_drive),
             "overdue": bool(overdue),
         })
 
@@ -1110,12 +1348,12 @@ async def assign_task(
         priority=req.priority,
         task_description=req.task_description,
         harddisk_number=req.harddisk_number,
+        pc_number=req.pc_number,
         harddisk_directory=req.harddisk_directory,
         uploaded_to_drive=(req.uploaded_to_drive == "Yes"),
         drive_link=req.drive_link,
         shoot_type=req.shoot_type,
         cameras_used=req.cameras_used,
-        comments=req.comments,
         expected_workload_hours=expected_hours,
     )
     db.add(new_record)
@@ -1136,7 +1374,9 @@ async def update_task(
     record.status = req.status
     record.priority = req.priority
     record.drive_link = req.drive_link
-    record.comments = req.comments
+    record.pc_number = req.pc_number
+    if req.uploaded_to_drive is not None:
+        record.uploaded_to_drive = (req.uploaded_to_drive == "Yes")
     if req.deadline_date:
         record.deadline_date = req.deadline_date
     db.commit()
@@ -1175,7 +1415,7 @@ async def get_all_leaves(
         query = query.filter(LeaveRequest.status == status_filter)
 
     leaves = query.order_by(LeaveRequest.start_date.desc()).all()
-    emp_map = {u.id: u for u in db.query(User).filter(User.role == "Employee").all()}
+    emp_map = {u.id: u for u in db.query(User).filter(User.role != "Admin").all()}
 
     result = []
     for l in leaves:
@@ -1349,12 +1589,9 @@ async def admin_create_holiday(
     user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    import calendar
-    day_name = req.day or req.date.strftime("%A")
     holiday = Holiday(
         name=req.name,
         date=req.date,
-        day=day_name,
         description=req.description,
         holiday_type=req.holiday_type,
         is_active=True
@@ -1375,7 +1612,6 @@ async def admin_update_holiday(
         raise HTTPException(status_code=404, detail="Holiday not found")
     holiday.name = req.name
     holiday.date = req.date
-    holiday.day = req.day or req.date.strftime("%A")
     holiday.description = req.description
     holiday.holiday_type = req.holiday_type
     holiday.is_active = req.is_active
@@ -1405,7 +1641,7 @@ async def admin_get_leave_balances(
     user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    employees = db.query(User).filter(User.role == "Employee").all()
+    employees = db.query(User).filter(User.role != "Admin").all()
     result = []
     for emp in employees:
         balance = db.query(LeaveBalance).filter(LeaveBalance.user_id == emp.id).first()

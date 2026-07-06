@@ -125,11 +125,11 @@
 
         /* ── Stats Grid ── */
         .stats-grid {
-            display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;
             margin-bottom: 1.75rem;
         }
-        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 700px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } }
+        @media (max-width: 700px)  { .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); } }
 
         .mini-stat {
             padding: 1.25rem; border-radius: var(--border-radius);
@@ -210,10 +210,11 @@
         </div>
         <nav class="sidebar-nav">
             <a href="/employee/dashboard" class="active"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
-            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & To-Do</a>
+            <a href="/employee/attendance"><i class="fa-solid fa-fingerprint"></i> Attendance & WFH</a>
             <a href="/employee/productivity"><i class="fa-solid fa-chart-line"></i> My Productivity</a>
             <a href="/employee/leaves"><i class="fa-solid fa-umbrella-beach"></i> Leaves & Holidays</a>
             <a href="/employee/profile"><i class="fa-solid fa-user-circle"></i> My Profile</a>
+            <a href="/employee/settings"><i class="fa-solid fa-gear"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-user">
@@ -275,8 +276,8 @@
                                 <option value="10">October</option><option value="11">November</option><option value="12">December</option>
                             </select>
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="loadDashboard()"><i class="fa-solid fa-filter"></i> Apply</button>
-                        <button class="btn btn-outline btn-sm" onclick="clearDateFilters()">Clear</button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="loadDashboard()"><i class="fa-solid fa-filter"></i> Apply</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="clearDateFilters()">Clear</button>
                     </div>
                 </div>
             </div>
@@ -293,11 +294,7 @@
                     <div class="mini-stat-val" id="stat-completed">—</div>
                     <div class="mini-stat-label">Completed</div>
                 </div>
-                <div class="mini-stat">
-                    <div class="mini-stat-icon" style="color:var(--warning)"><i class="fa-solid fa-hourglass-half"></i></div>
-                    <div class="mini-stat-val" id="stat-pending">—</div>
-                    <div class="mini-stat-label">Pending</div>
-                </div>
+                <!-- Pending stat removed per request -->
                 <div class="mini-stat">
                     <div class="mini-stat-icon" style="color:var(--info)"><i class="fa-solid fa-clock"></i></div>
                     <div class="mini-stat-val" id="stat-upcoming">—</div>
@@ -307,6 +304,16 @@
                     <div class="mini-stat-icon" style="color:#8b5cf6"><i class="fa-solid fa-calendar-xmark"></i></div>
                     <div class="mini-stat-val" id="stat-leaves">—</div>
                     <div class="mini-stat-label">Leaves Used</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:#b91c1c"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="mini-stat-val" id="stat-overdue">—</div>
+                    <div class="mini-stat-label">Overdue</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-icon" style="color:#7c3aed"><i class="fa-solid fa-user-pen"></i></div>
+                    <div class="mini-stat-val" id="stat-client-changes">—</div>
+                    <div class="mini-stat-label">Client Changes</div>
                 </div>
             </div>
 
@@ -380,6 +387,7 @@
                     </div>
                     <h4 style="font-size:0.9rem; margin-bottom:0.75rem; color:var(--text-secondary);">Performance Trend</h4>
                     <canvas id="trendChart" height="120"></canvas>
+                    <div id="trend-simple-legend" style="display:flex;flex-wrap:wrap;gap:0.6rem 0.8rem;margin-top:0.75rem;font-size:0.72rem;color:var(--text-secondary);"></div>
                 </div>
 
                 <!-- Upcoming Deadlines -->
@@ -408,12 +416,16 @@
 
         function populateYearFilter() {
             const select = document.getElementById('filter-year');
+            if (!select) return;
             select.innerHTML = '<option value="">All</option>';
-            const option = document.createElement('option');
-            option.value = '2026';
-            option.textContent = '2026';
-            select.appendChild(option);
-            select.value = '2026';
+            const currentYear = new Date().getFullYear();
+            for (let year = currentYear - 2; year <= currentYear + 1; year += 1) {
+                const option = document.createElement('option');
+                option.value = String(year);
+                option.textContent = String(year);
+                select.appendChild(option);
+            }
+            select.value = '';
         }
 
         function clearDateFilters() {
@@ -422,17 +434,30 @@
             loadDashboard();
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
+        let empDashboardInitialized = false;
+
+        async function initEmployeeDashboard() {
+            if (empDashboardInitialized) return;
+            empDashboardInitialized = true;
+
             try {
                 const meRes = await fetch('/api/auth/me');
                 if (!meRes.ok) { window.location.href = '/login'; return; }
                 const me = await meRes.json();
                 if (me.role === 'Admin') { window.location.href = '/admin/dashboard'; return; }
-            } catch(e) { window.location.href = '/login'; return; }
+            } catch(e) {
+                window.location.href = '/login';
+                return;
+            }
 
             populateYearFilter();
             await loadDashboard();
-        });
+        }
+
+        document.addEventListener('DOMContentLoaded', initEmployeeDashboard);
+        if (document.readyState === 'interactive' || document.readyState === 'complete') {
+            initEmployeeDashboard();
+        }
 
         async function loadDashboard() {
             const params = new URLSearchParams();
@@ -467,9 +492,11 @@
             // Stats
             document.getElementById('stat-assigned').textContent = stats.assigned;
             document.getElementById('stat-completed').textContent = stats.completed;
-            document.getElementById('stat-pending').textContent = stats.pending;
             document.getElementById('stat-upcoming').textContent = stats.upcoming;
             document.getElementById('stat-leaves').textContent = stats.leaves_taken;
+            // Show newly added stats if provided by API
+            if (document.getElementById('stat-overdue')) document.getElementById('stat-overdue').textContent = stats.overdue ?? 0;
+            if (document.getElementById('stat-client-changes')) document.getElementById('stat-client-changes').textContent = stats.client_changes ?? 0;
 
             // Attendance
             const statusMap = {
@@ -543,30 +570,61 @@
         function buildTrendChart(labels, data) {
             const ctx = document.getElementById('trendChart').getContext('2d');
             const isDark = document.documentElement.classList.contains('dark-theme') || document.body.classList.contains('dark-theme');
-            const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
             const tickColor = isDark ? '#94a3b8' : '#475569';
+            const legendEl = document.getElementById('trend-simple-legend');
+
+            const statusForValue = (value) => {
+                if (value >= 85) return { label: 'Doing Great', color: '#10b981' };
+                if (value >= 70) return { label: 'Good', color: '#3b82f6' };
+                if (value >= 50) return { label: 'Average', color: '#f59e0b' };
+                return { label: 'Needs Attention', color: '#ef4444' };
+            };
+
+            const barColors = data.map(value => statusForValue(value).color);
+            const legendItems = [
+                { label: 'Doing Great', color: '#10b981' },
+                { label: 'Good', color: '#3b82f6' },
+                { label: 'Average', color: '#f59e0b' },
+                { label: 'Needs Attention', color: '#ef4444' },
+            ];
+            if (legendEl) {
+                legendEl.innerHTML = legendItems.map(item => `
+                    <span style="display:inline-flex;align-items:center;gap:0.35rem;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${item.color};display:inline-block;"></span>
+                        <span>${item.label}</span>
+                    </span>
+                `).join('');
+            }
+
             if (trendChart) trendChart.destroy();
             trendChart = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Score',
+                        label: 'Progress',
                         data,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99,102,241,0.08)',
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#6366f1',
-                        pointRadius: 4,
-                        borderWidth: 2,
+                        backgroundColor: barColors,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        maxBarThickness: 24,
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const status = statusForValue(ctx.parsed.y ?? ctx.raw);
+                                    return ` ${status.label}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        y: { beginAtZero: true, max: 100, ticks: { color: tickColor }, grid: { color: gridColor } },
+                        y: { display: false, beginAtZero: true, max: 100 },
                         x: { ticks: { color: tickColor }, grid: { display: false } }
                     }
                 }
