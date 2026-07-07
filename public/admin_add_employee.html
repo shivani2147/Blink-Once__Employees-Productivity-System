@@ -212,25 +212,6 @@
                         <label>Date of Joining</label>
                         <input type="date" name="date_of_joining" class="form-control">
                     </div>
-                    <div class="form-group">
-                        <label>Department</label>
-
-                        <div class="multi-select" id="department_multi"></div>
-                        <select name="department" id="department_select" class="form-control" multiple size="5"
-                            style="display:none;">
-                            <option value="Photography">Photography</option>
-                            <option value="Videography">Videography</option>
-                            <option value="Editing">Editing</option>
-                            <option value="Creative / Design">Creative / Design</option>
-                            <option value="Sales & Marketing">Sales & Marketing</option>
-                            <option value="Client Management">Client Management</option>
-                            <option value="Finance / Accounts">Finance / Accounts</option>
-                            <option value="Administration">Administration</option>
-                            <option value="IT / Technical Support">IT / Technical Support</option>
-                            <option value="Freelance / External Resources">Freelance / External Resources</option>
-                            <option value="Management">Management</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
@@ -377,7 +358,6 @@
             updateTags();
         }
 
-        createMultiSelect('department_select', 'department_multi', 'dept_search', 'Select departments');
         createMultiSelect('designation_select', 'designation_multi', 'desig_search', 'Select designations');
 
         let editEmployeeId = null;
@@ -432,7 +412,6 @@
             document.querySelector('input[name="institution_name"]').value = emp.institution_name || '';
             document.querySelector('select[name="salary_type"]').value = emp.salary_type || '';
 
-            setMultiSelectValues('department_select', emp.department);
             setMultiSelectValues('designation_select', emp.designation);
 
             const roleSelect = document.querySelector('select[name="role"]');
