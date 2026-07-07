@@ -529,32 +529,38 @@ async def add_employee(
     request: Request,
     user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
-    role: str = Form(...),
-    full_name: str = Form(...),
-    email: str = Form(...),
-    mobile_number: str = Form(...),
-    dob: str = Form(...),
-    gender: str = Form(...),
-    address: str = Form(...),
-    emergency_contact: Optional[str] = Form(None),
-    highest_qualification: Optional[str] = Form(None),
-    institution_name: Optional[str] = Form(None),
-    date_of_joining: Optional[str] = Form(None),
-    department: Optional[List[str]] = Form(None),
-    designation: Optional[List[str]] = Form(None),
-    salary_type: Optional[str] = Form(None),
-    salary_amount: Optional[float] = Form(None),
-    experience: Optional[str] = Form(None),
-    skills: Optional[str] = Form(None),
-    software_knowledge: Optional[str] = Form(None),
-    camera_skill_level: Optional[str] = Form(None),
-    editing_type: Optional[str] = Form(None),
-    photo: Optional[UploadFile] = File(None),
-    resume: Optional[UploadFile] = File(None),
-    aadhaar_front: Optional[UploadFile] = File(None),
-    aadhaar_back: Optional[UploadFile] = File(None),
-    certificates: Optional[UploadFile] = File(None),
 ):
+    form = await request.form()
+
+    def get_first(name: str):
+        values = form.getlist(name)
+        return values[0] if values else None
+
+    role = get_first('role') or ''
+    full_name = get_first('full_name') or ''
+    email = get_first('email') or ''
+    mobile_number = get_first('mobile_number') or ''
+    dob = get_first('dob') or ''
+    gender = get_first('gender') or ''
+    address = get_first('address') or ''
+    emergency_contact = get_first('emergency_contact')
+    highest_qualification = get_first('highest_qualification')
+    institution_name = get_first('institution_name')
+    date_of_joining = get_first('date_of_joining')
+    department = form.getlist('department')
+    designation = form.getlist('designation')
+    salary_type = get_first('salary_type')
+    salary_amount = get_first('salary_amount')
+    experience = get_first('experience')
+    skills = get_first('skills')
+    software_knowledge = get_first('software_knowledge')
+    camera_skill_level = get_first('camera_skill_level')
+    editing_type = get_first('editing_type')
+    photo = form.get('photo')
+    resume = form.get('resume')
+    aadhaar_front = form.get('aadhaar_front')
+    aadhaar_back = form.get('aadhaar_back')
+    certificates = form.get('certificates')
     # Check if email is already registered
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
@@ -587,7 +593,7 @@ async def add_employee(
     emp_folder = os.path.join(base_folder, emp_folder_name)
     os.makedirs(emp_folder, exist_ok=True)
 
-    def save_file(file: UploadFile, folder: str, custom_name: str):
+    def save_file(file, folder: str, custom_name: str):
         if not file or not getattr(file, "filename", None):
             return None
         # Extract file extension
@@ -603,6 +609,13 @@ async def add_employee(
     aadhaar_front_path = save_file(aadhaar_front, emp_folder, 'front_aadhar_card')
     aadhaar_back_path = save_file(aadhaar_back, emp_folder, 'back_aadhar_card')
     certificates_path = save_file(certificates, emp_folder, 'certificates')
+
+    salary_amount_value = None
+    if salary_amount not in (None, ""):
+        try:
+            salary_amount_value = float(salary_amount)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Salary amount must be numeric")
 
     # Create user with email registered but no real password yet.
     # Use a temporary placeholder username and empty password_hash to remain compatible
@@ -627,7 +640,7 @@ async def add_employee(
         date_of_joining=date_of_joining,
         department=','.join(department) if department else None,
         salary_type=salary_type,
-        salary_amount=salary_amount,
+        salary_amount=salary_amount_value,
         experience=experience,
         skills=skills,
         software_knowledge=software_knowledge,
@@ -650,31 +663,38 @@ async def edit_employee(
     request: Request,
     user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
-    full_name: str = Form(...),
-    email: str = Form(...),
-    mobile_number: str = Form(...),
-    dob: str = Form(...),
-    gender: str = Form(...),
-    address: str = Form(...),
-    emergency_contact: Optional[str] = Form(None),
-    highest_qualification: Optional[str] = Form(None),
-    institution_name: Optional[str] = Form(None),
-    date_of_joining: Optional[str] = Form(None),
-    department: Optional[List[str]] = Form(None),
-    designation: Optional[List[str]] = Form(None),
-    salary_type: Optional[str] = Form(None),
-    salary_amount: Optional[float] = Form(None),
-    experience: Optional[str] = Form(None),
-    skills: Optional[str] = Form(None),
-    software_knowledge: Optional[str] = Form(None),
-    camera_skill_level: Optional[str] = Form(None),
-    editing_type: Optional[str] = Form(None),
-    photo: Optional[UploadFile] = File(None),
-    resume: Optional[UploadFile] = File(None),
-    aadhaar_front: Optional[UploadFile] = File(None),
-    aadhaar_back: Optional[UploadFile] = File(None),
-    certificates: Optional[UploadFile] = File(None),
 ):
+    form = await request.form()
+
+    def get_first(name: str):
+        values = form.getlist(name)
+        return values[0] if values else None
+
+    role = get_first('role') or ''
+    full_name = get_first('full_name') or ''
+    email = get_first('email') or ''
+    mobile_number = get_first('mobile_number') or ''
+    dob = get_first('dob') or ''
+    gender = get_first('gender') or ''
+    address = get_first('address') or ''
+    emergency_contact = get_first('emergency_contact')
+    highest_qualification = get_first('highest_qualification')
+    institution_name = get_first('institution_name')
+    date_of_joining = get_first('date_of_joining')
+    department = form.getlist('department')
+    designation = form.getlist('designation')
+    salary_type = get_first('salary_type')
+    salary_amount = get_first('salary_amount')
+    experience = get_first('experience')
+    skills = get_first('skills')
+    software_knowledge = get_first('software_knowledge')
+    camera_skill_level = get_first('camera_skill_level')
+    editing_type = get_first('editing_type')
+    photo = form.get('photo')
+    resume = form.get('resume')
+    aadhaar_front = form.get('aadhaar_front')
+    aadhaar_back = form.get('aadhaar_back')
+    certificates = form.get('certificates')
     emp = db.query(User).filter(User.id == employee_id, User.role != "Admin").first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -698,7 +718,7 @@ async def edit_employee(
     emp_folder = os.path.join(base_folder, emp_folder_name)
     os.makedirs(emp_folder, exist_ok=True)
 
-    def save_file(file: UploadFile, folder: str, custom_name: str):
+    def save_file(file, folder: str, custom_name: str):
         if not file or not getattr(file, "filename", None):
             return None
         file_ext = os.path.splitext(file.filename)[1]
@@ -707,6 +727,13 @@ async def edit_employee(
         with open(path, 'wb') as f:
             shutil.copyfileobj(file.file, f)
         return path.replace('\\', '/')
+
+    salary_amount_value = None
+    if salary_amount not in (None, ""):
+        try:
+            salary_amount_value = float(salary_amount)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Salary amount must be numeric")
 
     photo_path = save_file(photo, emp_folder, 'passport_photo') or emp.photo_path
     resume_path = save_file(resume, emp_folder, 'resume') or emp.resume_path
@@ -729,7 +756,7 @@ async def edit_employee(
     emp.department = ','.join(department) if department else None
     emp.designation = ','.join(designation) if designation else None
     emp.salary_type = salary_type
-    emp.salary_amount = salary_amount
+    emp.salary_amount = salary_amount_value
     emp.experience = experience
     emp.skills = skills
     emp.software_knowledge = software_knowledge
