@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from calendar import monthrange
 from typing import Optional, List
 from database import get_db
@@ -569,19 +569,29 @@ async def punch_out(req: PunchOutRequest, user: User = Depends(get_current_emplo
     now_str = datetime.now().strftime("%I:%M %p")
     hours = _calc_hours(att.time_in, now_str)
 
+    emp_name = (user.employee_name or '').strip().lower()
+    if emp_name == 'mayuri':
+        shift_end = time(19, 30) # 7:30 PM
+    elif emp_name == 'shubham mehta':
+        shift_end = time(19, 30) # 7:30 PM
+    else:
+        shift_end = time(19, 0) # 7:00 PM
+
+    now_time = datetime.now().time()
+
     # Determine day type
-    if hours >= 9.0:
+    if now_time >= shift_end:
         day_type = "Full Day"
     elif hours >= 5.0:
         day_type = "Half Day"
     else:
         day_type = "Short Day"
 
-    # If Half Day, reason is mandatory
-    if day_type == "Half Day" and not req.half_day_reason:
+    # If not Full Day, reason is mandatory
+    if day_type in ["Half Day", "Short Day"] and not req.half_day_reason:
         raise HTTPException(
             status_code=400,
-            detail="You worked less than a full day (5-9 hrs). Please provide a reason for half-day before punching out."
+            detail="You worked less than a full day. Please provide a reason for punching out early."
         )
 
     att.time_out = now_str

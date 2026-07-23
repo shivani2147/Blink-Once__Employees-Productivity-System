@@ -6,12 +6,38 @@
     }
 })();
 
+window.logout = async function() {
+    try {
+        await fetch("/api/logout", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+    } catch (error) {
+        console.warn("Logout request failed:", error);
+    } finally {
+        window.location.replace("/login");
+    }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     // Sync the theme class to body just in case
     const savedTheme = localStorage.getItem("theme") || "light";
     if (savedTheme === "dark") {
         document.body.classList.add("dark-theme");
     }
+
+    // Auto-add data-label to all table cells for mobile responsive tables
+    document.querySelectorAll('table').forEach(table => {
+        const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim());
+        table.querySelectorAll('tbody tr').forEach(row => {
+            Array.from(row.querySelectorAll('td')).forEach((td, index) => {
+                if (headers[index] && !td.hasAttribute('colspan') && !td.classList.contains('empty-state')) {
+                    td.setAttribute('data-label', headers[index]);
+                }
+            });
+        });
+    });
 
     const navLinks = document.querySelector(".nav-links");
     // Global function to allow hardcoded buttons (e.g., in Employee Portal) to trigger theme toggle
@@ -81,6 +107,22 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
         navLinks.appendChild(toggleBtn);
     }
+
+    document.addEventListener("click", async (event) => {
+        const target = event.target instanceof Element ? event.target.closest("a, button") : null;
+        if (!target) return;
+
+        const targetText = (target.textContent || "").toLowerCase();
+        const onclickAttr = (target.getAttribute("onclick") || "").toLowerCase();
+        const isLogoutControl = targetText.includes("logout") || onclickAttr.includes("logout");
+
+        if (!isLogoutControl) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        await window.logout();
+    }, true);
 
     toggleBtn.addEventListener("click", (e) => {
         e.preventDefault();

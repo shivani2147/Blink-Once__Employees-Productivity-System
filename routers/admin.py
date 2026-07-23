@@ -393,12 +393,12 @@ async def get_admin_notifications(
         if normalized == 'mayuri':
             return (
                 datetime.datetime.combine(today, datetime.time(12, 30)),
-                datetime.datetime.combine(today, datetime.time(19, 0)),
+                datetime.datetime.combine(today, datetime.time(19, 30)),
             )
         if normalized == 'shubham mehta':
             return (
-                datetime.datetime.combine(today, datetime.time(12, 0)),
-                datetime.datetime.combine(today, datetime.time(19, 0)),
+                datetime.datetime.combine(today, datetime.time(11, 30)),
+                datetime.datetime.combine(today, datetime.time(19, 30)),
             )
         return (
             datetime.datetime.combine(today, datetime.time(10, 30)),
@@ -418,7 +418,7 @@ async def get_admin_notifications(
                 try:
                     t_in = datetime.datetime.strptime(att.time_in, "%I:%M %p").time()
                     punch_in_dt = datetime.datetime.combine(today, t_in)
-                    if punch_in_dt > shift_start + datetime.timedelta(minutes=15):
+                    if punch_in_dt > shift_start + datetime.timedelta(minutes=20):
                         late_diff = punch_in_dt - shift_start
                         late_mins = int(late_diff.total_seconds() / 60)
                         title = "Late Arrival"
