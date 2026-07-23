@@ -385,7 +385,7 @@ async def get_admin_notifications(
     # 6) Attendance Notifications (Today's exceptions)
     today_att = db.query(Attendance).filter(Attendance.date == today).all()
     att_by_user = {a.user_id: a for a in today_att}
-    all_emps = db.query(User).filter(User.role == 'Employee').all()
+    all_emps = db.query(User).filter(User.role != 'Admin').all()
     now_local = datetime.datetime.now()
 
     def get_shift_times(employee_name: str):

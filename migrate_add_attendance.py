@@ -16,7 +16,7 @@ def run_migration():
     # Generate some mock data for existing employees
     db = SessionLocal()
     try:
-        employees = db.query(User).filter(User.role == "Employee").all()
+        employees = db.query(User).filter(User.role != "Admin").all()
         if not employees:
             print("No employees found. Skipping mock data generation.")
             return
