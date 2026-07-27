@@ -395,6 +395,11 @@ async def get_admin_notifications(
                 datetime.datetime.combine(today, datetime.time(12, 30)),
                 datetime.datetime.combine(today, datetime.time(19, 30)),
             )
+        if normalized == 'shivani':
+            return (
+                datetime.datetime.combine(today, datetime.time(11, 0)),
+                datetime.datetime.combine(today, datetime.time(19, 0)),
+            )
         if normalized == 'shubham mehta':
             return (
                 datetime.datetime.combine(today, datetime.time(11, 30)),
@@ -764,12 +769,7 @@ async def edit_employee(
     emp.resume_path = resume_path
     emp.aadhaar_front_path = aadhaar_front_path
     emp.aadhaar_back_path = aadhaar_back_path
-    emp.certificates_path = certificates_path
-
-    db.commit()
-    return {"message": "Employee updated"}
-
-
+    emp.certificates_path = certificates_path   
 @router.get("/employees")
 async def get_all_employees(
     user: User = Depends(get_current_admin),

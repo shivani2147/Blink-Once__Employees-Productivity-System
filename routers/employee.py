@@ -572,6 +572,8 @@ async def punch_out(req: PunchOutRequest, user: User = Depends(get_current_emplo
     emp_name = (user.employee_name or '').strip().lower()
     if emp_name == 'mayuri':
         shift_end = time(19, 30) # 7:30 PM
+    elif emp_name == 'shivani':
+        shift_end = time(19, 0) # 7:00 PM
     elif emp_name == 'shubham mehta':
         shift_end = time(19, 30) # 7:30 PM
     else:
