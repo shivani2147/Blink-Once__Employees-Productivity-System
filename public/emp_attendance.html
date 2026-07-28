@@ -737,8 +737,11 @@
                         style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
                         <h3 style="margin:0;"><i class="fa-solid fa-calendar-days"
                                 style="color:var(--accent-primary)"></i> Attendance History</h3>
-                        <input type="month" id="hist-month" class="form-control" style="width:auto;"
-                            onchange="loadHistory()">
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <input type="month" id="hist-month" class="form-control" style="width:auto;"
+                                onchange="loadHistory()">
+                            <button class="btn btn-primary" onclick="exportHistoryCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        </div>
                     </div>
                     <div id="hist-summary" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
                     <div class="table-container">
@@ -1122,17 +1125,29 @@
             tbody.innerHTML = data.records.map(r => {
                 const d = new Date(r.date);
                 const day = d.toLocaleDateString('en-IN', { weekday: 'short' });
-                const statusColors = { 'Present': '#059669', 'Absent': '#dc2626', 'Half Day': '#d97706', 'Short Day': '#d97706', 'Late': '#2563eb' };
-                const sc = statusColors[r.status] || '#64748b';
+                
+                let displayStatus = r.status || '—';
+                if (['Late', 'Half Day', 'Short Day'].includes(r.status)) {
+                    displayStatus = 'Present';
+                }
+                
+                const statusColors = { 'Present': '#059669', 'Absent': '#dc2626', 'Weekly Off': '#64748b' };
+                const sc = statusColors[displayStatus] || '#64748b';
+                
                 return `<tr>
                     <td>${r.date}</td><td>${day}</td>
                     <td>${r.time_in || '—'}</td><td>${r.time_out || '—'}</td>
                     <td>${r.working_hours != null ? r.working_hours + ' hrs' : '—'}</td>
                     <td>${r.day_type || '—'}</td>
-                    <td><span style="color:${sc};font-weight:600;">${r.status || '—'}</span></td>
+                    <td><span style="color:${sc};font-weight:600;">${displayStatus}</span></td>
                     <td style="font-size:0.8rem;color:var(--text-secondary);">${r.half_day_reason || '—'}</td>
                 </tr>`;
             }).join('');
+        }
+
+        function exportHistoryCSV() {
+            const month = document.getElementById('hist-month').value;
+            window.location.href = `/api/employee/attendance/export?month=${month}`;
         }
 
         async function loadWfhHistory() {

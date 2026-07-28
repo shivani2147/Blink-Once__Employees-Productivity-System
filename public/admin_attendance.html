@@ -180,8 +180,9 @@
                         <th>Punch In</th>
                         <th>Punch Out</th>
                         <th>Hours</th>
+                        <th>Day Type</th>
                         <th>Status</th>
-                        <th>Flags</th>
+                        <th>Reason</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -342,18 +343,20 @@ async function loadData() {
     empty.style.display = 'none'; wrap.style.display = 'block';
 
     tbody.innerHTML = d.records.map(r => {
-        const sc = r.status.toLowerCase();
+        let displayStatus = r.status;
+        if (['Late', 'Half Day', 'Short Day'].includes(r.status)) {
+            displayStatus = 'Present';
+        }
+        const sc = displayStatus.toLowerCase().replace(' ', '-');
+        
         let rowClass = '';
         if (r.status === 'Late') rowClass = 'row-late';
         else if (r.missing_punchout) rowClass = 'row-missing';
         else if (r.status === 'Absent') rowClass = 'row-absent';
 
         const initials = r.employee_name.split(' ').map(w=>w[0]).slice(0,2).join('');
-        const flags = [];
-        if (r.status === 'Late') flags.push(`<span class="badge badge-late" style="font-size:0.68rem;">Late</span>`);
-        if (r.missing_punchout) flags.push(`<span class="badge badge-missing" style="font-size:0.68rem;">Missing Punch-Out</span>`);
-        if (!flags.length) flags.push('<span style="color:var(--text-secondary);font-size:0.82rem;">—</span>');
-
+        const reasonText = r.half_day_reason ? r.half_day_reason : (r.missing_punchout ? 'Missing Punch-Out' : '—');
+        
         return `<tr class="${rowClass}">
             <td>
                 <div class="emp-cell">
@@ -368,8 +371,9 @@ async function loadData() {
             <td style="font-size:0.88rem;">${r.time_in || '—'}</td>
             <td style="font-size:0.88rem;">${r.time_out || '—'}</td>
             <td style="font-size:0.88rem;">${r.total_hours ? r.total_hours + ' hrs' : '—'}</td>
-            <td><span class="badge badge-${sc}">${r.status}</span></td>
-            <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">${flags.join('')}</td>
+            <td style="font-size:0.88rem;">${r.day_type || '—'}</td>
+            <td><span class="badge badge-${sc}">${displayStatus}</span></td>
+            <td style="font-size:0.85rem;color:var(--text-secondary);max-width:200px;">${reasonText}</td>
             <td>
                 <button class="btn btn-outline btn-sm" onclick='openEdit(${JSON.stringify(r)})'>
                     <i class="fa-solid fa-pen"></i> Edit

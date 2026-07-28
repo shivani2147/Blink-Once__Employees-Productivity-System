@@ -599,7 +599,11 @@ async def punch_out(req: PunchOutRequest, user: User = Depends(get_current_emplo
     att.time_out = now_str
     att.working_hours = hours
     att.day_type = day_type
-    att.half_day_reason = req.half_day_reason
+    if req.half_day_reason:
+        if att.half_day_reason:
+            att.half_day_reason += " | " + req.half_day_reason
+        else:
+            att.half_day_reason = req.half_day_reason
     if req.latitude: att.latitude = req.latitude
     if req.longitude: att.longitude = req.longitude
 
@@ -624,33 +628,77 @@ async def get_attendance_history(
     db: Session = Depends(get_db),
     month: str = ""
 ):
-    query = db.query(Attendance).filter(Attendance.user_id == user.id)
+    from datetime import date as dt
+    today = dt.today()
+    start_date = dt(today.year, today.month, 1)
+    end_date = today
+
     if month:
         # month format: YYYY-MM
         try:
             yr, mo = map(int, month.split("-"))
-            from datetime import date as dt
-            start = dt(yr, mo, 1)
+            start_date = dt(yr, mo, 1)
             if mo == 12:
-                end = dt(yr, 12, 31)
+                end_of_month = dt(yr, 12, 31)
             else:
-                end = dt(yr, mo + 1, 1) - timedelta(days=1)
-            query = query.filter(Attendance.date >= start, Attendance.date <= end)
+                end_of_month = dt(yr, mo + 1, 1) - timedelta(days=1)
+            
+            if yr == today.year and mo == today.month:
+                end_date = today
+            else:
+                end_date = end_of_month
         except Exception:
             pass
-    records = query.order_by(Attendance.date.desc()).all()
+
+    records = db.query(Attendance).filter(
+        Attendance.user_id == user.id,
+        Attendance.date >= start_date,
+        Attendance.date <= end_date
+    ).all()
+    
+    records_by_date = {a.date: a for a in records}
+    
     result = []
-    for a in records:
-        result.append({
-            "id": a.id,
-            "date": a.date.isoformat(),
-            "status": a.status,
-            "time_in": a.time_in,
-            "time_out": a.time_out,
-            "working_hours": a.working_hours,
-            "day_type": a.day_type,
-            "half_day_reason": a.half_day_reason,
-        })
+    
+    # Generate list of days from end_date down to start_date
+    current_date = end_date
+    while current_date >= start_date:
+        if current_date in records_by_date:
+            a = records_by_date[current_date]
+            status = a.status
+            day_type = a.day_type
+            reason = a.half_day_reason
+
+            if current_date < today and a.time_in and not a.time_out:
+                status = "Half Day"
+                day_type = "Half Day"
+                if not reason:
+                    reason = "Missed punch-out"
+
+            result.append({
+                "id": a.id,
+                "date": a.date.isoformat(),
+                "status": status,
+                "time_in": a.time_in,
+                "time_out": a.time_out,
+                "working_hours": a.working_hours,
+                "day_type": day_type,
+                "half_day_reason": reason,
+            })
+        else:
+            is_sunday = current_date.weekday() == 6
+            result.append({
+                "id": None,
+                "date": current_date.isoformat(),
+                "status": "Weekly Off" if is_sunday else "Absent",
+                "time_in": None,
+                "time_out": None,
+                "working_hours": None,
+                "day_type": None,
+                "half_day_reason": None,
+            })
+        current_date -= timedelta(days=1)
+
     # Summary
     present = len([r for r in result if r["status"] in ("Present", "Late")])
     half_days = len([r for r in result if r["status"] == "Half Day"])
@@ -666,6 +714,44 @@ async def get_attendance_history(
             "total": len(result),
         }
     }
+
+@router.get("/attendance/export")
+async def export_attendance_csv(
+    user: User = Depends(get_current_employee),
+    db: Session = Depends(get_db),
+    month: str = ""
+):
+    import io, csv
+    from fastapi.responses import StreamingResponse
+    
+    data = await get_attendance_history(user=user, db=db, month=month)
+    records = data["records"]
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Punch In", "Punch Out", "Total Hours", "Day Type", "Status", "Reason"])
+    
+    for r in records:
+        display_status = r["status"]
+        if display_status in ["Late", "Half Day", "Short Day"]:
+            display_status = "Present"
+            
+        writer.writerow([
+            r["date"],
+            r["time_in"] or "-",
+            r["time_out"] or "-",
+            r["working_hours"] if r["working_hours"] is not None else "-",
+            r["day_type"] or "-",
+            display_status,
+            r["half_day_reason"] or "-"
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=attendance_{user.employee_name.replace(' ', '_')}_{month or 'current'}.csv"}
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # WORK FROM HOME REQUESTS

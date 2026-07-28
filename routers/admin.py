@@ -1067,32 +1067,92 @@ async def get_all_attendance(
         query = query.filter(Attendance.date >= date_from)
     if date_to:
         query = query.filter(Attendance.date <= date_to)
-    if status_filter:
-        query = query.filter(Attendance.status == status_filter)
 
-    records = query.order_by(Attendance.date.desc()).all()
+    records = query.all()
+    
+    # Map by (user_id, date string) for fast lookup
+    records_map = {}
+    for a in records:
+        d_str = a.date.isoformat() if hasattr(a.date, 'isoformat') else str(a.date)
+        records_map[(a.user_id, d_str)] = a
+
     today = datetime.date.today()
+    
+    if employee_id:
+        emps = db.query(User).filter(User.role != "Admin", User.id == int(employee_id)).all()
+    else:
+        emps = db.query(User).filter(User.role != "Admin").all()
 
-    # Pre-fetch employees to avoid N+1
-    emp_map = {u.id: u for u in db.query(User).filter(User.role != "Admin").all()}
+    try:
+        d_from = datetime.datetime.strptime(date_from, "%Y-%m-%d").date() if date_from else today - datetime.timedelta(days=30)
+        d_to = datetime.datetime.strptime(date_to, "%Y-%m-%d").date() if date_to else today
+    except Exception:
+        d_from = today - datetime.timedelta(days=30)
+        d_to = today
 
     result = []
-    for a in records:
-        emp = emp_map.get(a.user_id)
-        total_hours = _calc_hours(a.time_in, a.time_out) if a.time_in and a.time_out else 0.0
-        missing_punchout = (a.date == today and bool(a.time_in) and not a.time_out)
-        result.append({
-            "id": a.id,
-            "user_id": a.user_id,
-            "employee_name": emp.employee_name if emp else "Unknown",
-            "employee_code": emp.employee_code if emp else "-",
-            "date": a.date.isoformat(),
-            "time_in": a.time_in,
-            "time_out": a.time_out,
-            "total_hours": total_hours,
-            "status": a.status,
-            "missing_punchout": missing_punchout,
-        })
+    current_date = d_to
+    
+    while current_date >= d_from:
+        date_str = current_date.isoformat()
+        is_sunday = current_date.weekday() == 6
+        
+        for emp in emps:
+            a = records_map.get((emp.id, date_str))
+            
+            if a:
+                status = a.status
+                day_type = a.day_type
+                reason = a.half_day_reason
+                missing_punchout = False
+                
+                if current_date < today and a.time_in and not a.time_out:
+                    status = "Half Day"
+                    day_type = "Half Day"
+                    if not reason:
+                        reason = "Missed punch-out"
+                elif current_date == today and a.time_in and not a.time_out:
+                    missing_punchout = True
+                
+                if status_filter and status != status_filter:
+                    continue
+                    
+                total_hours = _calc_hours(a.time_in, a.time_out) if a.time_in and a.time_out else 0.0
+                result.append({
+                    "id": a.id,
+                    "user_id": a.user_id,
+                    "employee_name": emp.employee_name,
+                    "employee_code": emp.employee_code,
+                    "date": date_str,
+                    "time_in": a.time_in,
+                    "time_out": a.time_out,
+                    "total_hours": total_hours,
+                    "status": status,
+                    "day_type": day_type,
+                    "half_day_reason": reason,
+                    "missing_punchout": missing_punchout,
+                })
+            else:
+                status = "Weekly Off" if is_sunday else "Absent"
+                if status_filter and status != status_filter:
+                    continue
+                    
+                result.append({
+                    "id": None,
+                    "user_id": emp.id,
+                    "employee_name": emp.employee_name,
+                    "employee_code": emp.employee_code,
+                    "date": date_str,
+                    "time_in": None,
+                    "time_out": None,
+                    "total_hours": 0.0,
+                    "status": status,
+                    "day_type": None,
+                    "half_day_reason": None,
+                    "missing_punchout": False,
+                })
+                
+        current_date -= datetime.timedelta(days=1)
 
     # Summary reflects the filtered result set (date range / employee / status)
     present_count = len([r for r in result if r.get("status") == "Present"])
