@@ -740,7 +740,8 @@
                         <div style="display:flex; gap:0.5rem; align-items:center;">
                             <input type="month" id="hist-month" class="form-control" style="width:auto;"
                                 onchange="loadHistory()">
-                            <button class="btn btn-primary" onclick="exportHistoryCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+                            <button class="btn btn-primary" onclick="exportHistoryCSV()"><i
+                                    class="fa-solid fa-download"></i> Export CSV</button>
                         </div>
                     </div>
                     <div id="hist-summary" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem;"></div>
@@ -773,7 +774,7 @@
             <h3 style="margin-bottom:0.5rem;"><i class="fa-solid fa-clock" style="color:var(--warning)"></i> Half-Day
                 Detected</h3>
             <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1.25rem;">
-                You have worked less than 9 hours. Please provide a reason before punching out.
+                Please provide a reason before punching out.
             </p>
             <div class="form-group">
                 <label class="required">Reason for Half-Day</label>
@@ -1035,13 +1036,10 @@
 
         async function initPunchOut() {
             showAlert('', false);
-            // Check if hours might be < 9 — need to determine from punch-in time
             const inStr = document.getElementById('today-in').textContent;
             if (inStr && inStr !== '—') {
-                const inTime = new Date(); // We'll let backend compute; show modal for safety
-                // Always show modal with optional reason if punch-in happened
-                pendingPunchOutHours = 0;
-                document.getElementById('half-day-modal').classList.add('active');
+                // Let the backend validate. If early, backend returns 400 and modal opens.
+                submitPunchOut();
             } else {
                 showAlert('You must punch in first!', true);
             }
@@ -1125,15 +1123,15 @@
             tbody.innerHTML = data.records.map(r => {
                 const d = new Date(r.date);
                 const day = d.toLocaleDateString('en-IN', { weekday: 'short' });
-                
+
                 let displayStatus = r.status || '—';
                 if (['Late', 'Half Day', 'Short Day'].includes(r.status)) {
                     displayStatus = 'Present';
                 }
-                
+
                 const statusColors = { 'Present': '#059669', 'Absent': '#dc2626', 'Weekly Off': '#64748b' };
                 const sc = statusColors[displayStatus] || '#64748b';
-                
+
                 return `<tr>
                     <td>${r.date}</td><td>${day}</td>
                     <td>${r.time_in || '—'}</td><td>${r.time_out || '—'}</td>
